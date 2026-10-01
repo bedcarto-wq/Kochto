@@ -3,9 +3,15 @@ name: Сборка для Windows
 # Kochto.exe со встроенным Python: друзьям ничего устанавливать не нужно.
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Тег релиза, к которому прикрепить exe (например 0.2). Пусто — только артефакт."
+        required: false
+        default: ""
+  release:
+    types: [published]
   push:
-    branches: [main, fix/playable-core]
-    tags: ["v*"]
+    branches: [main]
 
 permissions:
   contents: write
@@ -66,8 +72,9 @@ jobs:
           name: Kochto-windows
           path: Kocto/dist/Kochto-windows.zip
 
-      - name: Релиз (для тегов v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Прикрепить exe к релизу
+        if: github.event_name == 'release' || inputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.event.release.tag_name }}
           files: Kocto/dist/Kochto-windows.zip
