@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "tier_distribution_prior": { "great": 0.1, "solid": 0.25, "complication": 0.2, "minor": 0.2, "major": 0.1, "catastrophe": 0.05 },
+  "tier_effects": {
+    "great": { "primary_delta": 4, "secondary_delta": 2, "reactor_chance": 0.8 },
+    "solid": { "primary_delta": 3, "secondary_delta": 1, "reactor_chance": 0.6 },
+    "complication": { "primary_delta": 2, "secondary_delta": 0, "reactor_chance": 0.4 },
+    "minor": { "primary_delta": 1, "secondary_delta": 0, "reactor_chance": 0.3 },
+    "major": { "primary_delta": 2, "secondary_delta": 1, "reactor_chance": 0.5 },
+    "catastrophe": { "primary_delta": 3, "secondary_delta": 2, "reactor_chance": 0.9 }
+  },
+  "tier_margins": { "great": -30, "solid": -10, "complication": 0, "minor": 10, "major": 25 },
+  "context_weights": { "prison_penalty": -0.2, "mayor_bonus": 0.15, "councilor_bonus": 0.1, "opposition_penalty": -0.1 },
+  "reaction_tables": {
+    "positive": { "group": ["mood+", "loyalty+"], "party": ["trust+"], "publication": ["tone+"], "npc": ["relation+"] },
+    "negative": { "group": ["mood-", "loyalty-"], "party": ["trust-", "scandal+"], "publication": ["tone-"], "npc": ["relation-"] },
+    "neutral": { "group": ["mood="], "party": ["attention="], "publication": ["coverage="], "npc": ["relation="] }
+  },
+  "secondary_chance": 0.5,
+  "drift_bound": 1,
+  "plausibility_base": 0.7
+}

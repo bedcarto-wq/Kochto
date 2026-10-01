@@ -1,0 +1,2 @@
+{ "schema_version": 1, "id": "region", "display_name": "Регион Кочто", "name": "Регион",
+  "level": "region", "parent": "federation", "children": ["city"], "population": 100000, "active": false }

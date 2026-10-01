@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "salience_decay": 2,
+  "story": [
+    {"week": 2, "id": "rain_roads", "title": "Дожди размыли дороги", "tone": -0.3, "weight": 3.0,
+     "effects": [
+       {"type": "issue_salience", "group": "farmers", "issue": "roads", "delta": 15},
+       {"type": "issue_salience", "group": "poor", "issue": "roads", "delta": 15},
+       {"type": "candidate_support", "group": "farmers", "candidate": "lozhkin", "delta": -2},
+       {"type": "candidate_support", "group": "poor", "candidate": "lozhkin", "delta": -2}]},
+    {"week": 8, "id": "debates", "title": "Дебаты кандидатов", "tone": 0.1, "weight": 2.5,
+     "effects": [
+       {"type": "player_stat", "stat": "awareness", "delta": 3},
+       {"type": "player_stat", "stat": "stress", "delta": 2}]}
+  ],
+  "random_pool": [
+    {"id": "donation", "chance": 0.4, "condition": {"player_trust_min": 15}, "title": "Пожертвование сторонников", "tone": 0.2, "weight": 2.0, "effects": [{"type": "player_money", "delta": 5000}]},
+    {"id": "posters_torn", "chance": 0.4, "condition": {"player_awareness_min": 15}, "title": "Сорваны плакаты", "tone": -0.2, "weight": 2.0, "effects": [{"type": "player_stat", "stat": "stress", "delta": 3}]},
+    {"id": "rival_scandal", "chance": 0.4, "condition": {}, "title": "Скандал у соперника", "tone": -0.1, "weight": 2.0, "effects": [{"type": "random_rival_support", "delta": -2}]}
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "village": {"id": "kochto", "name": "Кочто", "population": 4800, "budget": 100},
+  "groups": [
+    {"id": "pensioners", "name": "Пенсионеры", "size": 1150, "mood": 45, "loyalty": 40, "issues": {"medicine": 85, "prices": 80, "utilities": 70}},
+    {"id": "farmers", "name": "Фермеры", "size": 820, "mood": 50, "loyalty": 45, "issues": {"roads": 85, "fuel": 70, "land": 60}},
+    {"id": "youth", "name": "Молодёжь", "size": 540, "mood": 55, "loyalty": 35, "issues": {"jobs": 75, "internet": 60, "transport": 50}},
+    {"id": "budget_workers", "name": "Бюджетники", "size": 430, "mood": 48, "loyalty": 50, "issues": {"wages": 75, "stability": 65}},
+    {"id": "small_business", "name": "Малый бизнес", "size": 280, "mood": 52, "loyalty": 42, "issues": {"taxes": 70, "inspections": 65, "roads": 55}},
+    {"id": "elders", "name": "Старейшины", "size": 80, "mood": 40, "loyalty": 55, "issues": {"stability": 80, "land": 70}},
+    {"id": "poor", "name": "Малоимущие", "size": 350, "mood": 35, "loyalty": 38, "issues": {"jobs": 85, "social_aid": 80, "prices": 80}}
+  ],
+  "parties": [
+    {"id": "village_alliance", "name": "Деревенский альянс", "popularity": 32, "trust_to_player": 10, "discipline": 70, "scandal": 20, "seats": 3},
+    {"id": "people_land", "name": "Земля народа", "popularity": 24, "trust_to_player": 10, "discipline": 55, "scandal": 25, "seats": 2},
+    {"id": "free_region", "name": "Свободный регион", "popularity": 15, "trust_to_player": 10, "discipline": 45, "scandal": 30, "seats": 1},
+    {"id": "order_tradition", "name": "Порядок и традиция", "popularity": 13, "trust_to_player": 10, "discipline": 65, "scandal": 15, "seats": 1},
+    {"id": "community_union", "name": "Союз общины", "popularity": 9, "trust_to_player": 10, "discipline": 35, "scandal": 35, "seats": 0}
+  ],
+  "candidates": [
+    {"id": "lozhkin", "name": "Ложкин", "popularity": 72, "scandal": 38, "party_id": "village_alliance"},
+    {"id": "travin", "name": "Травин", "popularity": 45, "scandal": 15, "party_id": "people_land"},
+    {"id": "vetrova", "name": "Ветрова", "popularity": 30, "scandal": 12, "party_id": "free_region"},
+    {"id": "bardin", "name": "Бардин", "popularity": 35, "scandal": 20, "party_id": "order_tradition"}
+  ],
+  "npcs": [
+    {"id": "tihonova", "name": "Тихонова", "role": "глава избиркома", "loyalty": 40, "influence": 40},
+    {"id": "krasnov", "name": "Краснов", "role": "директор совхоза", "loyalty": 35, "influence": 55},
+    {"id": "verhova", "name": "Верхова", "role": "редактор", "loyalty": 45, "influence": 35}
+  ],
+  "publications": [
+    {"id": "vestnik", "name": "Вестник деревни", "tone": 0.0, "reach": 7},
+    {"id": "listok", "name": "Независимый листок", "tone": 0.1, "reach": 5},
+    {"id": "nabat", "name": "Оппозиционный набат", "tone": -0.3, "reach": 4}
+  ],
+  "councils": {"seats": 7},
+  "start": {
+    "treasury": 100,
+    "player_name": "Игрок",
+    "money": 100,
+    "awareness": 10,
+    "trust": 10,
+    "anti_awareness": 5,
+    "role": "candidate",
+    "electoral_system": "смешанная"
+  },
+  "balance": {
+    "weekly_income": 20,
+    "seat_income": 2,
+    "weekly_expenses": 10,
+    "promise_upkeep": 1
+  }
+}

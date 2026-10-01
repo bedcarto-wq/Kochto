@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "enabled_phase": "B",
+  "creation": {"explicit_command": true, "meeting_success_creates_expectation": true, "program_action_creates": true},
+  "deadline_weeks_default": 24,
+  "fulfill": {"law_enacted_matching_issue_and_group": true, "executive_action_matching": true, "issue_salience_drop_below": 40},
+  "partial_factor": 0.5,
+  "break_penalties": {"anti_rating": 6, "group_trust": -4, "scandal": 5, "legacy_tag": "нарушенные обещания"},
+  "media_forget": {"penalty_reduction": 0.5, "risk_expose": 0.3}
+}

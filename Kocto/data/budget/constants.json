@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "weekly_income": 120,
+  "seat_income": 12,
+  "weekly_expenses": 80,
+  "promise_upkeep": 3,
+  "default_skill": "charisma",
+  "default_difficulty": 50,
+  "arrested_allowed_intents": ["legal_defense", "escape"],
+  "investigation_max": 100
+}

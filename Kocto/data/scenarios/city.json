@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "village": {
+    "id": "kochto",
+    "name": "Кочто",
+    "display_name": "Кочто ",
+    "level": "city",
+    "population": 20000,
+    "budget": 1200,
+    "election": { "period_weeks": 48 }
+  },
+  "councils": { "seats": 9 },
+  "start": {
+    "player_name": "Игрок",
+    "age": 35,
+    "money": 3000,
+    "awareness": 8,
+    "trust": 10,
+    "anti_awareness": 4,
+    "role": "candidate",
+    "electoral_system": "смешанная",
+    "first_election_week": 10,
+    "treasury": 1200
+  },
+  "balance": {
+    "weekly_income": 120,
+    "seat_income": 12,
+    "weekly_expenses": 80,
+    "promise_upkeep": 3,
+    "default_skill": "charisma",
+    "default_difficulty": 50,
+    "arrested_allowed_intents": ["lawyer", "escape"],
+    "investigation_max": 100
+  },
+  "groups": [
+    { "id": "workers", "name": "Рабочие", "size": 4200, "mood": 48, "loyalty": 45,
+      "issues": { "transport": 70, "housing": 60, "jobs": 75, "utilities": 50 },
+      "candidate_support": { "Ложкин": 900 },
+      "party_support": { "Единый город": 1400, "Городские перемены": 600 } },
+    { "id": "youth", "name": "Молодёжь", "size": 2600, "mood": 55, "loyalty": 40,
+      "issues": { "jobs": 80, "internet": 70, "housing": 55, "ecology": 40 },
+      "candidate_support": { "Ложкин": 300 },
+      "party_support": { "Городские перемены": 900, "Независимые": 200 } },
+    { "id": "elders", "name": "Пенсионеры", "size": 3100, "mood": 42, "loyalty": 60,
+      "issues": { "healthcare": 85, "utilities": 70, "transport": 45 },
+      "candidate_support": { "Ложкин": 700 },
+      "party_support": { "Единый город": 1100, "Независимые": 150 } },
+    { "id": "business", "name": "Предприниматели", "size": 1400, "mood": 52, "loyalty": 38,
+      "issues": { "taxes": 80, "transport": 50, "jobs": 45 },
+      "candidate_support": { "Ложкин": 250 },
+      "party_support": { "Единый город": 500, "Городские перемены": 250 } },
+    { "id": "teachers", "name": "Учителя", "size": 900, "mood": 46, "loyalty": 52,
+      "issues": { "education": 85, "jobs": 60, "housing": 40 },
+      "candidate_support": { "Ложкин": 150 },
+      "party_support": { "Городские перемены": 350, "Независимые": 120 } },
+    { "id": "doctors", "name": "Врачи", "size": 700, "mood": 44, "loyalty": 50,
+      "issues": { "healthcare": 90, "jobs": 55, "utilities": 35 },
+      "candidate_support": { "Ложкин": 120 },
+      "party_support": { "Независимые": 200, "Городские перемены": 180 } }
+  ],
+  "parties": [
+    { "id": "united", "name": "Единый город", "popularity": 34, "trust_to_player": 12,
+      "discipline": 70, "scandal": 8, "seats": 4 },
+    { "id": "changes", "name": "Городские перемены", "popularity": 22, "trust_to_player": 18,
+      "discipline": 55, "scandal": 4, "seats": 3 },
+    { "id": "indep", "name": "Независимые", "popularity": 12, "trust_to_player": 25,
+      "discipline": 30, "scandal": 2, "seats": 1 }
+  ],
+  "candidates": [
+    { "id": "lozhkin", "name": "Ложкин", "popularity": 38, "scandal": 10, "party_id": "united" },
+    { "id": "voronina", "name": "Воронина", "popularity": 24, "scandal": 5, "party_id": "changes" }
+  ],
+  "npcs": [
+    { "id": "mayor_old", "name": "Старый мэр", "role": "мэр", "loyalty": 30, "influence": 40 },
+    { "id": "speaker", "name": "Председатель совета", "role": "спикер", "loyalty": 50, "influence": 30 },
+    { "id": "editor", "name": "Редактор вестника", "role": "медиа", "loyalty": 45, "influence": 25 }
+  ],
+  "publications": [
+    { "id": "official", "name": "Городской вестник", "tone": 0.0, "reach": 50 },
+    { "id": "independent", "name": "Кочто сегодня", "tone": 0.3, "reach": 30 },
+    { "id": "opposition", "name": "Голос улицы", "tone": -0.3, "reach": 20 }
+  ]
+}

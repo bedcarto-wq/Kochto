@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "default_system": "mixed",
+  "systems": {
+    "proportional": {"name": "Пропорциональная (наибольший остаток)", "method": "largest_remainder", "districts": "single", "rounds": 1, "threshold_pct": 0},
+    "majoritarian": {"name": "Мажоритарная (два тура)", "method": "districts", "district_source": "groups_by_voters", "rounds": 2, "round2_rule": "top2_with_bonus", "bonus_rule": {"player": "awareness/10", "party": "popularity/10"}},
+    "mixed": {"name": "Смешанная", "method": "mixed", "majoritarian_seats": 4, "proportional_seats": 3, "rounds": 2, "round2_rule": "top2_with_bonus"}
+  },
+  "reform": {"act_type": "constitutional", "required_votes": 4, "council_seats_total": 7}
+}

@@ -1,0 +1,16 @@
+{
+  "act_types": {
+    "law": {"simple_majority": 4},
+    "constitutional": {"qualified_majority": 5, "reform_exception_votes": 4},
+    "budget": {"simple_majority": 4}
+  },
+  "veto": {"override_votes": 5},
+  "templates": [
+    {"id": "reform_proportional", "title": "Реформа: пропорциональная система", "act_type": "constitutional", "target_electoral_system": "proportional", "weekly_cost": 0, "effects": []},
+    {"id": "reform_majoritarian", "title": "Реформа: мажоритарная система", "act_type": "constitutional", "target_electoral_system": "majoritarian", "weekly_cost": 0, "effects": []},
+    {"id": "reform_mixed", "title": "Реформа: смешанная система", "act_type": "constitutional", "target_electoral_system": "mixed", "weekly_cost": 0, "effects": []},
+    {"id": "roads_fund", "title": "Дорожный фонд", "act_type": "law", "weekly_cost": 2, "effects": [{"type": "group_mood", "group": "farmers", "delta": 2}, {"type": "group_loyalty", "group": "farmers", "delta": 1}]},
+    {"id": "social_aid", "title": "Социальная поддержка", "act_type": "law", "weekly_cost": 3, "effects": [{"type": "group_mood", "group": "poor", "delta": 2}, {"type": "group_mood", "group": "pensioners", "delta": 1}]},
+    {"id": "medicine_help", "title": "Медицинская помощь", "act_type": "law", "weekly_cost": 2, "effects": [{"type": "group_mood", "group": "pensioners", "delta": 2}]}
+  ]
+}
