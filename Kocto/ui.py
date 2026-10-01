@@ -396,14 +396,18 @@ def tk_available() -> bool:
 def ask_profile() -> Tuple[str, int]:
     import tkinter as tk
     from tkinter import ttk
+    # Окно-анкета — само корневое окно. Раньше это был Toplevel, привязанный (transient) к скрытому root:
+    # Windows прятал его вместе с root — процесс висел без окна.
     root = tk.Tk()
-    root.withdraw()
     holder = {"name": "Игрок", "age": 35, "done": False}
-    win = tk.Toplevel(root)
-    win.title("Новая кампания")
-    win.geometry("320x170")
-    win.transient(root)
-    win.grab_set()
+    win = root
+    win.title("Кочто — новая кампания")
+    win.geometry("340x180")
+    win.resizable(False, False)
+    win.lift()
+    win.attributes("-topmost", True)
+    win.after(400, lambda: win.attributes("-topmost", False))
+    win.focus_force()
     ttk.Label(win, text="Имя персонажа:").pack(anchor="w", padx=10, pady=(10, 0))
     name_var = tk.StringVar(value="Игрок")
     ttk.Entry(win, textvariable=name_var, width=30).pack(anchor="w", padx=10)
@@ -421,9 +425,13 @@ def ask_profile() -> Tuple[str, int]:
         win.destroy()
 
     ttk.Button(win, text="Начать", command=submit).pack(pady=10)
+    win.bind("<Return>", lambda e: submit())
     win.protocol("WM_DELETE_WINDOW", submit)
-    root.wait_window(win)
-    root.destroy()
+    root.mainloop()
+    try:
+        root.destroy()
+    except Exception:
+        pass
     return holder["name"], holder["age"]
 
 
@@ -576,4 +584,9 @@ class TkinterUI:
         ttk.Button(win, text="Применить и завершить неделю", command=submit).pack(pady=6)
 
     def run(self) -> None:
+        self.root.deiconify()
+        self.root.lift()
+        self.root.attributes("-topmost", True)
+        self.root.after(400, lambda: self.root.attributes("-topmost", False))
+        self.root.focus_force()
         self.root.mainloop()
