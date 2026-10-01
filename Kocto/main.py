@@ -86,6 +86,25 @@ def save_game(state: models.GameState, rng: random.Random) -> None:
     models.save_json(SAVE_FILE, payload)
 
 
+PLAYTEST = {"on": False}
+
+
+def playtest_on() -> bool:
+    return bool(PLAYTEST["on"])
+
+
+def _migrate_save(state: models.GameState) -> Optional[str]:
+    """Старые сейвы: выборы когда-то завершали игру. По канону game over — только смерть."""
+    if state.is_game_over and state.game_over_reason != "death":
+        old = state.game_over_reason
+        state.is_game_over = False
+        state.game_over_reason = ""
+        if state.next_election_week < state.week:
+            state.next_election_week = state.week
+        return "Сейв из старой версии: игра была завершена («" + str(old) + "»), кампания продолжена."
+    return None
+
+
 def load_game() -> Tuple[Optional[models.GameState], Optional[random.Random], Optional[str]]:
     if not SAVE_FILE.exists():
         return None, None, None
@@ -94,8 +113,17 @@ def load_game() -> Tuple[Optional[models.GameState], Optional[random.Random], Op
         if not isinstance(raw, dict):
             raise ValueError("сейв не объект JSON")
         state = models.game_from_dict(raw)
+        note = _migrate_save(state)
+        if state.is_game_over:
+            # смерть — конец этой жизни; сейв уходит в архив, запускается новая кампания
+            arch = SAVE_DIR / ("save_dead_week" + str(state.week) + ".json")
+            try:
+                SAVE_FILE.replace(arch)
+            except Exception:
+                pass
+            return None, None, "Прошлая кампания окончена (" + str(state.game_over_reason) + "). Сейв в архиве: " + arch.name + "."
         rng = systems.rng_from_state(state.rng_state, state.seed)
-        return state, rng, None
+        return state, rng, note
     except Exception as exc:
         bak = _backup_corrupt(SAVE_FILE)
         note = ""
@@ -141,11 +169,63 @@ def new_game(data: models.GameData, seed: int, name: str, age: int) -> Tuple[mod
 
 
 # ================= постановка действия =================
-def _enqueue(state: models.GameState, action_id: str, target: str, intent: str, delayed: bool) -> Tuple[bool, str]:
+def _enqueue(state: models.GameState, action_id: str, target: str, intent: str, delayed: bool,
+             issue: str = "", meta: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     action = systems.ACTIONS.get(action_id)
     if not action:
         return False, "Действие не найдено: " + str(action_id)
-    return systems.enqueue_action(state, action, target, intent, delayed)
+    return systems.enqueue_action(state, action, target, intent, delayed, issue, meta)
+
+
+def _examples_hint() -> str:
+    data = systems.DATA
+    ex = ((getattr(data, "world", None) or {}).get("ui") or {}).get("examples") or [] if data else []
+    if not ex:
+        return ""
+    return " Например: «" + "», «".join(str(x) for x in ex[:3]) + "». Все примеры — 5 (справка)."
+
+
+# ================= отзывы плейтеста =================
+FEEDBACK_FILE: Path = SAVE_DIR / "feedback.txt"
+SESSION: Dict[str, Any] = {"phrases": 0, "free": 0, "not_understood": [], "weeks": 0, "errors": []}
+
+
+def _feedback(state: models.GameState, text: str) -> str:
+    ensure_dirs()
+    line = "[нед. " + str(state.week) + "] " + text.strip() + "\n"
+    with open(FEEDBACK_FILE, "a", encoding="utf-8") as fh:
+        fh.write(line)
+    return "Спасибо! Отзыв записан в " + str(FEEDBACK_FILE) + "."
+
+
+def write_session_report(state: Optional[models.GameState]) -> Optional[Path]:
+    """Итог сессии для автора: что не понял парсер, сколько недель, ошибки. Без личных данных."""
+    try:
+        ensure_dirs()
+        path = SAVE_DIR / "playtest_report.txt"
+        lines = ["=== Кочто: отчёт сессии ===",
+                 "Неделя: " + str(state.week if state else "?") + ", недель за сессию: " + str(SESSION["weeks"]),
+                 "Фраз введено: " + str(SESSION["phrases"]) + ", из них «своих действий»: " + str(SESSION["free"]),
+                 "Не понял (" + str(len(SESSION["not_understood"])) + "):"]
+        lines += ["  · " + t for t in SESSION["not_understood"][-60:]]
+        if SESSION.get("free_phrases"):
+            lines.append("Стали «своим действием» (проверить, правильно ли поняты):")
+            lines += ["  · " + t for t in SESSION["free_phrases"][-60:]]
+        if SESSION["errors"]:
+            lines.append("Внутренние ошибки:")
+            lines += ["  · " + t for t in SESSION["errors"][-30:]]
+        if state is not None:
+            pl = state.player
+            lines.append("Итог: роль " + str(pl.role.value) + ", узнав. " + str(pl.awareness) + ", доверие " +
+                         str(pl.trust) + ", деньги " + str(pl.money) + ", выборов " + str(state.election_count))
+        if FEEDBACK_FILE.exists():
+            lines.append("Отзывы:")
+            lines += ["  " + t for t in FEEDBACK_FILE.read_text(encoding="utf-8").splitlines()[-60:]]
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n\n")
+        return path
+    except Exception:
+        return None
 
 
 # ================= свободные законы =================
@@ -241,6 +321,23 @@ def handle_command(state: models.GameState, rng: random.Random, cmd: str,
         return {"message": "", "modal": "help", "review": None}
     if norm in ("6", "управление", "gov"):
         return {"message": "", "modal": "gov", "review": None}
+    if norm in ("7", "город", "соперники", "world"):
+        return {"message": "", "modal": "world", "review": None}
+
+    # отзыв автору (плейтест)
+    if cmd.lower().startswith("отзыв"):
+        body = cmd[len("отзыв"):].strip(" :—-")
+        if not body:
+            return {"message": "Формат: отзыв <что понравилось/сломалось>.", "modal": None, "review": None}
+        return {"message": _feedback(state, body), "modal": None, "review": None}
+
+    # отмена действия из плана
+    _parts = norm.split()
+    if _parts and _parts[0] in ("отменить", "отмена") and (len(_parts) == 1 or (len(_parts) == 2 and _parts[1].isdigit())):
+        idx = int(_parts[1]) if len(_parts) == 2 else len(state.week_actions)
+        message = systems.cancel_action(state, idx)
+        save_game(state, rng)
+        return {"message": message, "modal": None, "review": None}
 
     # детализация
     if norm.startswith("детализация"):
@@ -310,6 +407,7 @@ def handle_command(state: models.GameState, rng: random.Random, cmd: str,
         return {"message": msg, "modal": None, "review": None}
 
     # обычная фраза -> парсер
+    SESSION["phrases"] += 1
     if data is None:
         return {"message": "Данные не загружены.", "modal": None, "review": None}
 
@@ -341,6 +439,9 @@ def handle_command(state: models.GameState, rng: random.Random, cmd: str,
                   ParseStatus.TOO_MANY_ACTIONS, ParseStatus.UNKNOWN):
         message = parse_result.get("message", "Не распознано.")
         opts = parse_result.get("options") or []
+        if status in (ParseStatus.NEEDS_REFORMULATION, ParseStatus.UNKNOWN):
+            SESSION["not_understood"].append(text_for_parse[:120])
+            message += _examples_hint()
         if opts:
             state.parser_context["pending_options"] = opts
         return {"message": message, "modal": None, "review": None}
@@ -368,7 +469,12 @@ def handle_command(state: models.GameState, rng: random.Random, cmd: str,
         tgt = str(a.get("target", ""))
         intent = str(a.get("intent", ""))
         delayed = bool(a.get("delayed", False))
-        ok, msg = _enqueue(state, aid, tgt, intent, delayed)
+        meta = {"tags": a.get("tags") or [], "stance": a.get("stance", ""), "offer": a.get("offer", ""),
+                "raw": a.get("raw", "") or text_for_parse}
+        if aid == "free_action":
+            SESSION["free"] += 1
+            SESSION.setdefault("free_phrases", []).append(text_for_parse[:120])
+        ok, msg = _enqueue(state, aid, tgt, intent, delayed, str(a.get("issue", "") or ""), meta)
         messages.append(msg)
         if not ok:
             all_ok = False
@@ -436,7 +542,14 @@ def _handle_choice(state: models.GameState, rng: random.Random, idx: int,
 def _console_review(state: models.GameState, review: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if not review:
         return []
-    print(ui.render_review(review))
+    print(ui.render_review(review, ask=False))
+    if not playtest_on():
+        # обычная игра: итоги недели только показываются, игрока не просят оценивать
+        try:
+            input("Enter — продолжить.")
+        except (EOFError, KeyboardInterrupt):
+            pass
+        return []
     verdicts: List[Dict[str, Any]] = []
     for item in review:
         idx = item.get("index", 0)
@@ -472,14 +585,25 @@ def console_loop(state: models.GameState, rng: random.Random, memory: Dict[str, 
         except (EOFError, KeyboardInterrupt):
             save_game(state, rng)
             break
-        result = handle_command(state, rng, cmd, memory)
+        try:
+            result = handle_command(state, rng, cmd, memory)
+        except Exception as exc:
+            SESSION["errors"].append(repr(exc)[:200] + " на: " + cmd[:80])
+            result = {"message": "Внутренняя ошибка: " + str(exc), "modal": None, "review": None}
         if result.get("review") is not None:
             review = result["review"]
-            verdicts = _console_review(state, review) if review else []
+            if review and playtest_on():
+                verdicts = _console_review(state, review)
+            else:
+                verdicts = []
+                if review:
+                    print(ui.render_review(review, ask=False))
+            before = systems.snapshot(state)
             systems.finish_week(state, verdicts)
+            SESSION["weeks"] += 1
             _clear_pending(state)
             save_game(state, rng)
-            message = "Неделя завершена."
+            message = "Неделя завершена. " + systems.week_summary(before, state)
             if state.is_game_over:
                 print(ui.render_modal("gameover", state))
                 break
@@ -506,24 +630,30 @@ def tk_loop(state: models.GameState, rng: random.Random, memory: Dict[str, Any])
         try:
             result = handle_command(state, rng, cmd, memory)
         except Exception as exc:
+            SESSION["errors"].append(repr(exc)[:200] + " на: " + cmd[:80])
             result = {"message": "Внутренняя ошибка: " + str(exc) + ". Окно обновлено.",
                       "modal": None, "review": None}
 
         if result.get("review") is not None:
             review = result["review"]
 
+            before = systems.snapshot(state)
+
             def on_done(verdicts: List[Dict[str, Any]]) -> None:
                 systems.finish_week(state, verdicts)
+                SESSION["weeks"] += 1
                 _clear_pending(state)
                 save_game(state, rng)
                 if state.is_game_over:
                     holder["tui"].open_modal(ui.render_modal("gameover", state))
-                holder["tui"].refresh(state, "Неделя завершена.")
+                holder["tui"].refresh(state, "Неделя завершена. " + systems.week_summary(before, state))
 
-            if review:
+            if review and playtest_on():
                 holder["tui"].open_review(review, on_done)
             else:
                 on_done([])
+                if review:
+                    holder["tui"].open_modal(ui.render_review(review, ask=False))
             return
 
         modal = result.get("modal")
@@ -531,12 +661,13 @@ def tk_loop(state: models.GameState, rng: random.Random, memory: Dict[str, Any])
             holder["tui"].open_modal(ui.render_modal(modal, state))
             if modal == "gameover":
                 save_game(state, rng)
-                holder["tui"].root.destroy()
+                holder["tui"].refresh(state, "Кампания окончена. Закрой окно — при следующем запуске начнётся новая.")
                 return
         holder["tui"].refresh(state, result.get("message", ""))
 
     def on_close() -> None:
         save_game(state, rng)
+        write_session_report(state)
         holder["tui"].root.destroy()
 
     tui = ui.TkinterUI(action_titles, on_command, on_close)
@@ -549,6 +680,7 @@ def tk_loop(state: models.GameState, rng: random.Random, memory: Dict[str, Any])
 def _selftest(data: models.GameData) -> int:
     print("SELFTEST: валидация данных пройдена (load_data без DataError).")
     systems.init_data(data, models.USER_DATA_DIR)
+    ui.set_examples(((data.world or {}).get("ui") or {}).get("examples") or [])
     nn_analyzer_set(data)
     tmp_state = models.build_state(data, DEFAULT_SEED)
     violations = systems.selftest_composer(tmp_state, DEFAULT_SEED, n=120)
@@ -586,9 +718,11 @@ def nn_analyzer_set(data: models.GameData) -> None:
 
 # ================= точка входа =================
 def _ask_seed_console() -> int:
+    if sys.stdin is None or not sys.stdin.isatty():
+        return DEFAULT_SEED
     try:
         txt = input("Сид новой игры (пусто = " + str(DEFAULT_SEED) + "): ").strip()
-    except (EOFError, KeyboardInterrupt):
+    except (EOFError, KeyboardInterrupt, RuntimeError):
         txt = ""
     if not txt:
         return DEFAULT_SEED
@@ -649,7 +783,9 @@ def main() -> int:
         print("ПРЕДУПРЕЖДЕНИЕ РАНТАЙМ: " + w)
 
     systems.init_data(data, models.USER_DATA_DIR)
+    ui.set_examples(((data.world or {}).get("ui") or {}).get("examples") or [])
     nn_analyzer_set(data)
+    PLAYTEST["on"] = bool(data.nn.get("playtest_mode", False)) or ("--playtest" in flag_set)
     language.init_constructions()
 
     if "--selftest" in flag_set:
@@ -663,8 +799,9 @@ def main() -> int:
     memory = load_memory()
 
     if state is None or rng is None:
-        seed = _ask_seed_console()
         use_tk = ("--console" not in flag_set) and ui.tk_available()
+        # в окне сид не спрашиваем (в сборке без консоли input() невозможен): каждая кампания своя
+        seed = random.SystemRandom().randint(1, 999999) if use_tk else _ask_seed_console()
         if use_tk:
             name, age = ui.ask_profile()
         else:
@@ -673,13 +810,51 @@ def main() -> int:
         save_game(state, rng)
         print("Новая кампания. Сид: " + str(seed) + ". Имя: " + name + ", возраст: " + str(age) + ".")
 
+    # A/B-выбор «парсер или НС» — только в плейтесте (config playtest_mode или флаг --playtest)
+    state.ab_mode = playtest_on() and bool(data.nn.get("ab_mode", False) or "--playtest" in flag_set)
     use_tk = ("--console" not in flag_set) and ui.tk_available()
     if use_tk:
         tk_loop(state, rng, memory)
     else:
         console_loop(state, rng, memory)
+        write_session_report(state)
+    print("Отчёт сессии: " + str(SAVE_DIR / "playtest_report.txt") + " — пришли его автору вместе с feedback.txt.")
     return 0
 
 
+def _fatal(text: str) -> None:
+    """Сборка без консоли: ошибку нельзя напечатать — пишем crash.log и показываем окно."""
+    try:
+        ensure_dirs()
+        (SAVE_DIR / "crash.log").write_text(text, encoding="utf-8")
+    except Exception:
+        pass
+    if models.frozen_build():
+        try:
+            import tkinter
+            from tkinter import messagebox
+            root = tkinter.Tk()
+            root.withdraw()
+            messagebox.showerror("Кочто", text[-1500:] + "\n\nЛог: " + str(SAVE_DIR / "crash.log"))
+            root.destroy()
+        except Exception:
+            pass
+
+
+def run() -> int:
+    import traceback
+    try:
+        code = main()
+    except SystemExit:
+        raise
+    except Exception:
+        _fatal("Игра упала:\n" + traceback.format_exc())
+        return 1
+    if code == 2:
+        _fatal("Не удалось загрузить данные игры (папка data рядом с Kochto.exe). "
+               "Распакуй архив целиком и запусти снова.")
+    return code
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run())

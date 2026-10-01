@@ -1,10 +1,11 @@
 {
   "schema_version": 1,
   "determinism_policy": "F",
-  "ab_mode": true,
+  "ab_mode": false,
   "free_generator": false,
   "enabled_recognizer": true,
-  "enabled_writer": true,
+  "enabled_writer": false,
   "enabled_analyzer": true,
-  "min_confidence_default": 0.45
+  "min_confidence_default": 0.45,
+  "playtest_mode": false
 }
