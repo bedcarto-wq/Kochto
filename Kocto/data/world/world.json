@@ -1,0 +1,935 @@
+{
+  "schema_version": 1,
+  "candidate_income": {
+    "base": 20,
+    "per_awareness": 4,
+    "per_trust": 2,
+    "log": "Пожертвования сторонников: +{amount}.",
+    "trust_floor": 20
+  },
+  "free_action": {
+    "action_id": "free_action",
+    "title_prefix": "Своё действие",
+    "base_cost": 100,
+    "base_difficulty": 50,
+    "min_difficulty": 25,
+    "max_difficulty": 85,
+    "catalog_tag_scale": 0.5,
+    "hot_group_bonus": 10
+  },
+  "tier_scale": {
+    "great": 1.5,
+    "solid": 1.0,
+    "complication": 0.5,
+    "minor": 1.0,
+    "major": 1.5,
+    "catastrophe": 2.0
+  },
+  "tags": {
+    "public": {
+      "label": "публично",
+      "words": [
+        "публично",
+        "открыто",
+        "выступить",
+        "выступление",
+        "речь",
+        "митинг",
+        "площадь",
+        "на людях",
+        "рынок",
+        "рынке",
+        "собрание"
+      ],
+      "skill": "charisma",
+      "difficulty": 0,
+      "cost": 0,
+      "success": [
+        {
+          "type": "player_stat",
+          "stat": "awareness",
+          "delta": 2
+        },
+        {
+          "type": "group_mood",
+          "target": "group",
+          "delta": 2
+        }
+      ],
+      "fail": [
+        {
+          "type": "player_stat",
+          "stat": "anti_awareness",
+          "delta": 1
+        }
+      ]
+    },
+    "secret": {
+      "label": "тайно",
+      "words": [
+        "тайно",
+        "скрытно",
+        "втихую",
+        "незаметно",
+        "анонимно",
+        "по секрету",
+        "подпольно",
+        "ночью"
+      ],
+      "skill": "stealth",
+      "difficulty": 5,
+      "cost": 0,
+      "success": [],
+      "fail": [
+        {
+          "type": "player_stat",
+          "stat": "evidence",
+          "delta": 5
+        },
+        {
+          "type": "player_stat",
+          "stat": "threat",
+          "delta": 2
+        }
+      ]
+    },
+    "money": {
+      "label": "деньги",
+      "words": [
+        "деньги",
+        "денег",
+        "заплатить",
+        "оплатить",
+        "спонсировать",
+        "пожертвовать",
+        "раздать",
+        "подарить",
+        "подарки",
+        "вложить",
+        "профинансировать",
+        "купить",
+        "премия"
+      ],
+      "skill": "connections",
+      "difficulty": -5,
+      "cost": 300,
+      "success": [
+        {
+          "type": "group_mood",
+          "target": "group",
+          "delta": 3
+        },
+        {
+          "type": "support",
+          "target": "group",
+          "subject": "player",
+          "delta": 60
+        }
+      ],
+      "fail": [
+        {
+          "type": "player_stat",
+          "stat": "anti_awareness",
+          "delta": 1
+        }
+      ]
+    },
+    "media": {
+      "label": "пресса",
+      "words": [
+        "газета",
+        "газету",
+        "интервью",
+        "статья",
+        "статью",
+        "пресса",
+        "прессу",
+        "телевидение",
+        "радио",
+        "пост",
+        "соцсети",
+        "листовки",
+        "плакаты",
+        "плакат",
+        "видео",
+        "репортаж"
+      ],
+      "skill": "media",
+      "difficulty": 0,
+      "cost": 100,
+      "success": [
+        {
+          "type": "player_stat",
+          "stat": "awareness",
+          "delta": 3
+        }
+      ],
+      "fail": [
+        {
+          "type": "player_stat",
+          "stat": "anti_awareness",
+          "delta": 1
+        }
+      ]
+    },
+    "attack": {
+      "label": "атака",
+      "words": [
+        "разоблачить",
+        "очернить",
+        "компромат",
+        "обвинить",
+        "высмеять",
+        "атаковать",
+        "критиковать",
+        "раскритиковать",
+        "опозорить",
+        "слухи",
+        "слух",
+        "наехать"
+      ],
+      "skill": "persuasion",
+      "difficulty": 5,
+      "cost": 100,
+      "success": [
+        {
+          "type": "rival_popularity",
+          "target": "rival",
+          "delta": -3
+        },
+        {
+          "type": "support",
+          "target": "group",
+          "subject": "rival",
+          "delta": -50
+        },
+        {
+          "type": "player_stat",
+          "stat": "threat",
+          "delta": 1
+        }
+      ],
+      "fail": [
+        {
+          "type": "player_stat",
+          "stat": "anti_awareness",
+          "delta": 3
+        },
+        {
+          "type": "rival_memory",
+          "target": "rival",
+          "delta": 1
+        }
+      ]
+    },
+    "help": {
+      "label": "помощь",
+      "words": [
+        "помочь",
+        "помощь",
+        "поддержать",
+        "починить",
+        "отремонтировать",
+        "ремонт",
+        "построить",
+        "убрать",
+        "субботник",
+        "накормить",
+        "отвезти",
+        "защитить",
+        "спасти",
+        "волонтёры",
+        "волонтеры"
+      ],
+      "skill": "organization",
+      "difficulty": 0,
+      "cost": 150,
+      "success": [
+        {
+          "type": "group_mood",
+          "target": "group",
+          "delta": 4
+        },
+        {
+          "type": "group_loyalty",
+          "target": "group",
+          "delta": 2
+        },
+        {
+          "type": "player_stat",
+          "stat": "trust",
+          "delta": 2
+        }
+      ],
+      "fail": [
+        {
+          "type": "player_stat",
+          "stat": "trust",
+          "delta": -1
+        }
+      ]
+    },
+    "promise": {
+      "label": "обещание",
+      "words": [
+        "обещать",
+        "пообещать",
+        "обещаю",
+        "гарантировать",
+        "клянусь",
+        "добиться",
+        "добьюсь"
+      ],
+      "skill": "persuasion",
+      "difficulty": 0,
+      "cost": 0,
+      "success": [
+        {
+          "type": "player_stat",
+          "stat": "trust",
+          "delta": 1
+        },
+        {
+          "type": "support",
+          "target": "group",
+          "subject": "player",
+          "delta": 40
+        }
+      ],
+      "fail": [
+        {
+          "type": "player_stat",
+          "stat": "anti_awareness",
+          "delta": 1
+        }
+      ]
+    },
+    "talk": {
+      "label": "разговор",
+      "words": [
+        "поговорить",
+        "убедить",
+        "договориться",
+        "предложить",
+        "попросить",
+        "уговорить",
+        "обсудить",
+        "переговоры"
+      ],
+      "skill": "persuasion",
+      "difficulty": 0,
+      "cost": 0,
+      "success": [
+        {
+          "type": "group_loyalty",
+          "target": "group",
+          "delta": 2
+        }
+      ],
+      "fail": []
+    },
+    "illegal": {
+      "label": "незаконно",
+      "words": [
+        "подкупить",
+        "взятка",
+        "взятку",
+        "вбросить",
+        "вброс",
+        "подделать",
+        "запугать",
+        "угрожать",
+        "шантаж",
+        "шантажировать",
+        "сжечь",
+        "украсть"
+      ],
+      "skill": "stealth",
+      "difficulty": 10,
+      "cost": 200,
+      "success": [
+        {
+          "type": "rival_popularity",
+          "target": "rival",
+          "delta": -4
+        },
+        {
+          "type": "player_stat",
+          "stat": "evidence",
+          "delta": 3
+        }
+      ],
+      "fail": [
+        {
+          "type": "player_stat",
+          "stat": "evidence",
+          "delta": 10
+        },
+        {
+          "type": "player_stat",
+          "stat": "investigation",
+          "delta": 5
+        },
+        {
+          "type": "player_stat",
+          "stat": "threat",
+          "delta": 4
+        }
+      ]
+    },
+    "organize": {
+      "label": "организация",
+      "words": [
+        "организовать",
+        "собрать",
+        "провести",
+        "создать",
+        "нанять",
+        "штаб",
+        "команду",
+        "команда",
+        "агитаторов",
+        "обход"
+      ],
+      "skill": "organization",
+      "difficulty": 0,
+      "cost": 100,
+      "success": [
+        {
+          "type": "player_stat",
+          "stat": "awareness",
+          "delta": 1
+        },
+        {
+          "type": "support",
+          "target": "group",
+          "subject": "player",
+          "delta": 30
+        }
+      ],
+      "fail": []
+    },
+    "intel": {
+      "label": "разведка",
+      "words": [
+        "разведать",
+        "узнать",
+        "выведать",
+        "шпионить",
+        "проследить",
+        "следить",
+        "выяснить",
+        "подслушать",
+        "планы"
+      ],
+      "skill": "stealth",
+      "difficulty": 0,
+      "cost": 100,
+      "success": [
+        {
+          "type": "reveal_rivals",
+          "delta": 1
+        }
+      ],
+      "fail": [
+        {
+          "type": "player_stat",
+          "stat": "threat",
+          "delta": 1
+        }
+      ]
+    }
+  },
+  "stance_words": {
+    "up": [
+      "повысить",
+      "увеличить",
+      "расширить",
+      "построить",
+      "открыть",
+      "добавить",
+      "вложить",
+      "поднять",
+      "сохранить",
+      "защитить"
+    ],
+    "down": [
+      "снизить",
+      "сократить",
+      "урезать",
+      "закрыть",
+      "запретить",
+      "отменить",
+      "убрать",
+      "понизить",
+      "заморозить"
+    ]
+  },
+  "contradiction": {
+    "window_weeks": 12,
+    "publication": "opposition",
+    "effects": [
+      {
+        "type": "player_stat",
+        "stat": "anti_awareness",
+        "delta": 4
+      },
+      {
+        "type": "player_stat",
+        "stat": "trust",
+        "delta": -3
+      }
+    ],
+    "headline": "{publication} ловит кандидата на противоречии: тема «{issue}»",
+    "body": "На неделе {old_week} кандидат {player} говорил одно, а теперь другое. Тема «{issue}»: сначала «{old_dir}», теперь «{new_dir}». Избиратели запомнят.",
+    "dir_names": {
+      "up": "за",
+      "down": "против"
+    }
+  },
+  "rivals": {
+    "max_moves_per_week": 3,
+    "reveal_log": "Разведка: {rival} на следующей неделе собирается — {move}.",
+    "personalities": {
+      "lozhkin": {
+        "aggression": 0.5,
+        "media": 0.7,
+        "dirty": 0.3,
+        "caution": 0.6,
+        "grassroots": 0.4
+      },
+      "voronina": {
+        "aggression": 0.7,
+        "media": 0.5,
+        "dirty": 0.2,
+        "caution": 0.4,
+        "grassroots": 0.8
+      }
+    },
+    "default_personality": {
+      "aggression": 0.5,
+      "media": 0.5,
+      "dirty": 0.2,
+      "caution": 0.5,
+      "grassroots": 0.5
+    },
+    "moves": {
+      "campaign": {
+        "label": "агитировать в группе",
+        "weights": {
+          "grassroots": 1.0,
+          "behind": 0.6,
+          "urgency": 0.5
+        },
+        "base": 0.6,
+        "effects": {
+          "rival_popularity": 2,
+          "rival_support": 80
+        },
+        "headline": "{rival} провёл встречи: {group} слушали внимательно",
+        "body": "Кандидат {rival} провёл серию встреч. Избиратели ({group}) задавали вопросы о теме «{issue}». Штаб конкурента доволен."
+      },
+      "media_push": {
+        "label": "выйти в прессу",
+        "weights": {
+          "media": 1.0,
+          "urgency": 0.4
+        },
+        "base": 0.4,
+        "effects": {
+          "rival_popularity": 3
+        },
+        "headline": "{publication}: большое интервью — {rival}",
+        "body": "{rival} дал большое интервью и рассказал о планах на город. Тема «{issue}» прозвучала не раз."
+      },
+      "attack_player": {
+        "label": "ударить по игроку",
+        "weights": {
+          "aggression": 1.0,
+          "player_leads": 1.2,
+          "revenge": 1.5
+        },
+        "base": 0.2,
+        "effects": {
+          "player_anti": 3,
+          "player_trust": -1
+        },
+        "headline": "{rival} атакует: «кандидат {player} не держит слово»",
+        "body": "Конкурент {rival} публично раскритиковал кандидата {player}. По словам штаба, кандидату нельзя доверять."
+      },
+      "dirty_trick": {
+        "label": "грязный приём против игрока",
+        "weights": {
+          "dirty": 1.2,
+          "player_leads": 0.8,
+          "revenge": 1.0,
+          "caution": -0.8
+        },
+        "base": 0.05,
+        "effects": {
+          "player_anti": 4,
+          "player_threat": 3
+        },
+        "caught_chance": 0.3,
+        "caught_effects": {
+          "rival_scandal": 8
+        },
+        "headline": "Листовки против кандидата {player} появились ночью",
+        "body": "Утром горожане нашли анонимные листовки против кандидата {player}. Кто за ними стоит, неизвестно, но слухи указывают на штаб: {rival}."
+      },
+      "defend": {
+        "label": "отбиваться от скандала",
+        "weights": {
+          "scandal": 1.5,
+          "caution": 0.6
+        },
+        "base": 0.1,
+        "effects": {
+          "rival_scandal": -4
+        },
+        "headline": "{rival} отвечает на критику",
+        "body": "Штаб: {rival} опроверг обвинения и пообещал предоставить документы. Скандал понемногу стихает."
+      }
+    },
+    "popularity_diminish": 1.4
+  },
+  "npc_talk": {
+    "base_chance": 35,
+    "repeat_penalty": 15,
+    "repeat_window": 4,
+    "offers": {
+      "money": {
+        "label": "деньги",
+        "words": [
+          "деньги",
+          "взятка",
+          "взятку",
+          "заплатить",
+          "конверт",
+          "отблагодарить"
+        ],
+        "trait": "greed",
+        "illegal": true
+      },
+      "post": {
+        "label": "должность",
+        "words": [
+          "должность",
+          "пост",
+          "место",
+          "кресло",
+          "назначить",
+          "назначение"
+        ],
+        "trait": "ambition",
+        "illegal": false
+      },
+      "threat": {
+        "label": "давление",
+        "words": [
+          "угроза",
+          "угрожать",
+          "компромат",
+          "шантаж",
+          "запугать",
+          "надавить"
+        ],
+        "trait": "fear",
+        "illegal": true
+      },
+      "favor": {
+        "label": "услуга",
+        "words": [
+          "помощь",
+          "помочь",
+          "услуга",
+          "просьба",
+          "попросить",
+          "поддержка"
+        ],
+        "trait": "loyalty",
+        "illegal": false
+      },
+      "praise": {
+        "label": "уважение",
+        "words": [
+          "похвалить",
+          "уважение",
+          "благодарность",
+          "поблагодарить",
+          "признать"
+        ],
+        "trait": "pride",
+        "illegal": false
+      }
+    },
+    "traits": {
+      "mayor_old": {
+        "greed": 0.6,
+        "ambition": 0.3,
+        "fear": 0.4,
+        "loyalty": 0.3,
+        "pride": 0.7
+      },
+      "speaker": {
+        "greed": 0.3,
+        "ambition": 0.7,
+        "fear": 0.5,
+        "loyalty": 0.5,
+        "pride": 0.4
+      },
+      "editor": {
+        "greed": 0.2,
+        "ambition": 0.4,
+        "fear": 0.3,
+        "loyalty": 0.4,
+        "pride": 0.6
+      }
+    },
+    "success_loyalty": 8,
+    "fail_loyalty": -6,
+    "role_effects": {
+      "мэр": [
+        {
+          "type": "player_stat",
+          "stat": "trust",
+          "delta": 2
+        },
+        {
+          "type": "player_money",
+          "delta": 300
+        }
+      ],
+      "спикер": [
+        {
+          "type": "player_stat",
+          "stat": "awareness",
+          "delta": 1
+        },
+        {
+          "type": "party_trust",
+          "delta": 5
+        }
+      ],
+      "медиа": [
+        {
+          "type": "player_stat",
+          "stat": "awareness",
+          "delta": 3
+        }
+      ]
+    },
+    "illegal_fail": [
+      {
+        "type": "player_stat",
+        "stat": "evidence",
+        "delta": 8
+      },
+      {
+        "type": "player_stat",
+        "stat": "threat",
+        "delta": 3
+      }
+    ],
+    "log_success": "{npc} согласился ({offer}). Отношение +{delta}.",
+    "log_fail": "{npc} отказал ({offer}). Отношение {delta}."
+  },
+  "emergent": {
+    "cooldown_weeks": 4,
+    "chance": 0.35,
+    "hot_weeks": 2,
+    "salience_decay": 1,
+    "salience_floor": 30,
+    "events": [
+      {
+        "id": "strike",
+        "label": "забастовка",
+        "min_pressure": 60,
+        "groups": [
+          "workers",
+          "teachers",
+          "doctors"
+        ],
+        "effects": {
+          "group_mood": -4,
+          "salience": 8,
+          "incumbent_popularity": -3
+        },
+        "headline": "Забастовка: {group} требуют решить вопрос «{issue}»",
+        "body": "Избиратели ({group}) прекратили работу. Тема «{issue}» стала главной в городе. Власть пока молчит — у оппозиции есть шанс."
+      },
+      {
+        "id": "protest",
+        "label": "протест",
+        "min_pressure": 50,
+        "groups": [],
+        "effects": {
+          "group_mood": -3,
+          "salience": 6,
+          "incumbent_popularity": -2
+        },
+        "headline": "Протест у администрации: {group} и тема «{issue}»",
+        "body": "У здания администрации собрались недовольные ({group}). Главная претензия — «{issue}». Кто первым поддержит людей, тот и выиграет."
+      },
+      {
+        "id": "petition",
+        "label": "петиция",
+        "min_pressure": 40,
+        "groups": [],
+        "effects": {
+          "group_mood": -1,
+          "salience": 4,
+          "incumbent_popularity": -1
+        },
+        "headline": "Петиция по теме «{issue}» собирает подписи",
+        "body": "Избиратели ({group}) собирают подписи по теме «{issue}». Инициаторы ждут, кто из кандидатов откликнется."
+      }
+    ],
+    "incumbent_candidate": "lozhkin",
+    "hot_hint": "Горячая точка: {group} ({event}) — действия с ними сейчас сильнее."
+  },
+  "ui": {
+    "examples": [
+      "встретиться с пенсионерами о медицине",
+      "тайно раздать деньги рабочим",
+      "дать интервью газете кочто сегодня о налогах",
+      "поговорить с редактором и предложить должность",
+      "разведать планы Ложкина",
+      "помочь врачам отремонтировать больницу"
+    ]
+  },
+  "justice": {
+    "_comment": "Задержание → арест → суд → приговор/оправдание → срок → свобода. Тюрьма не убивает сама по себе: здоровье падает до пола. Смерть — от покушений при высокой угрозе.",
+    "evidence_decay": 1,
+    "detained_release_if_evidence_below": 25,
+    "arrest_chance": 0.5,
+    "trial_after_weeks": 3,
+    "verdict": {
+      "evidence_weight": 1.5,
+      "connections_weight": 0.6,
+      "security_weight": 0.3,
+      "lawyer_max_spend": 300,
+      "lawyer_per_100": 6,
+      "random": 25,
+      "threshold": 45
+    },
+    "acquit": {
+      "evidence_mult": 0.5,
+      "investigation": 30,
+      "trust": 3,
+      "log": "Суд оправдал {name}. Обвинение рассыпалось."
+    },
+    "sentence": {
+      "base_weeks": 4,
+      "per_evidence": 0.1,
+      "max_weeks": 16,
+      "trust": -10,
+      "awareness": 5,
+      "log": "Суд: {name} приговорён к {weeks} нед. заключения."
+    },
+    "release": {
+      "log": "{name} вышел на свободу. Дело закрыто.",
+      "legacy": "отсидел срок"
+    },
+    "custody_health_drain": 3,
+    "custody_stress": 4,
+    "custody_health_floor": 15,
+    "recovery_health": 2,
+    "recovery_stress": 3,
+    "assassination": {
+      "min_threat": 70,
+      "chance_per_point": 0.004,
+      "damage_min": 20,
+      "damage_max": 60,
+      "security_reduce": 0.5,
+      "custody_mult": 1.5,
+      "log": "Покушение на {name}! Ранение: здоровье −{dmg}.",
+      "headline": "Покушение на политика {name}"
+    },
+    "threat_decay": 1
+  },
+  "diminishing": {
+    "_comment": "Рост узнаваемости/доверия замедляется у потолка: delta*(100-текущее)/100*factor",
+    "stats": [
+      "awareness",
+      "trust",
+      "anti_awareness"
+    ],
+    "factor": 1.4
+  },
+  "drift": {
+    "_comment": "Еженедельно: узнаваемость забывается выше порога, доверие тянется к нейтральному",
+    "awareness_floor": 20,
+    "awareness_decay": 1,
+    "trust_neutral": 50,
+    "trust_step": 1,
+    "every_weeks": 2,
+    "trust_only_down": true,
+    "rival_popularity_floor": 30,
+    "rival_popularity_decay": 1,
+    "rival_scandal_decay": 1,
+    "anti_decay": 2,
+    "rival_popularity_recover": 1
+  },
+  "tier_labels": {
+    "great": "блестяще",
+    "solid": "успех",
+    "complication": "с осложнениями",
+    "minor": "неудача",
+    "major": "серьёзный провал",
+    "catastrophe": "катастрофа"
+  },
+  "free_news": {
+    "_comment": "Заголовки для «своих действий» по первому подходящему тегу. Тайное при успехе в газеты не попадает; при провале — утечка.",
+    "order": [
+      "attack",
+      "help",
+      "promise",
+      "organize",
+      "media",
+      "talk",
+      "money",
+      "public"
+    ],
+    "headlines": {
+      "attack": "{player} пошёл в атаку: досталось {target}",
+      "help": "{player} взялся помочь: {target}",
+      "promise": "{player} раздаёт обещания: {target} ждут результата",
+      "organize": "{player} собирает сторонников: {target}",
+      "media": "{player} в прессе: громкое заявление",
+      "talk": "{player} провёл разговор: {target}",
+      "money": "{player} не жалеет денег: {target}",
+      "public": "{player} вышел к людям: {target}",
+      "default": "{player} удивил город: «{raw}»"
+    },
+    "default_target": "горожане",
+    "leak_headline": "Утечка: штаб кандидата {player} пытался провернуть тайное дело",
+    "leak_body": "Источники утверждают, что кандидат {player} пытался действовать втайне («{raw}»). Штаб от комментариев отказался."
+  },
+  "tag_routes": [
+    {
+      "_comment": "«разведать планы X» — разведка, а не атака",
+      "tag": "intel",
+      "unless": [
+        "attack"
+      ],
+      "action": "gather_rumors",
+      "intent": "rumors"
+    }
+  ],
+  "election": {
+    "_comment": "Счёт игрока против лучшего соперника. Действующий мэр (incumbent из emergent) получает бонус; шум — непредсказуемость дня выборов.",
+    "player": {
+      "awareness": 0.5,
+      "trust": 0.7,
+      "anti_awareness": -0.4,
+      "seat": 2
+    },
+    "rival": {
+      "popularity": 1.0,
+      "scandal": -1.0
+    },
+    "incumbent_bonus": 10,
+    "noise": 10
+  }
+}

@@ -1,0 +1,9 @@
+# Python
+__pycache__/
+*.pyc
+
+# Сейвы и рантайм-файлы игры (создаются при первом запуске)
+Kocto/saves/
+Kocto/data/nn/eval/
+Kocto/data/nn/memory/constructions.json
+Kocto/data/laws/custom_laws.json

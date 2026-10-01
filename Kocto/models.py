@@ -295,6 +295,8 @@ class GameState:
     event_log: List[str] = field(default_factory=list)
     parser_context: Dict[str, Any] = field(default_factory=dict)
     text_history: List[Dict[str, Any]] = field(default_factory=list)  # для уникальности за 5 недель
+    # живой мир: планы и память соперников, память НПС, заявления игрока, горячие группы, итоги недели
+    world: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -320,6 +322,7 @@ class GameData:
     budget: Dict[str, Any]
     region: Dict[str, Any] = field(default_factory=dict)       # метаданные скелета региона
     federation: Dict[str, Any] = field(default_factory=dict)   # метаданные скелета федерации
+    world: Dict[str, Any] = field(default_factory=dict)        # data/world/world.json: теги, соперники, НПС, события
 
 
 # ================= JSON IO =================
@@ -512,6 +515,8 @@ def load_data(data_dir: Path, active_scenario: str = "city.json") -> Tuple[GameD
         "analyzer": analyzer_cfg,
         "recognizer": recognizer_cfg,
         "ab_mode": bool(config.get("ab_mode", True)),
+        # плейтест: A/B-выбор и ревизия «похоже/не похоже» показываются только при true
+        "playtest_mode": bool(config.get("playtest_mode", False)),
         "free_generator": bool(config.get("free_generator", False)),
         "determinism_policy": str(config.get("determinism_policy", "F")),
         "enabled_recognizer": enabled_rec,
@@ -537,6 +542,9 @@ def load_data(data_dir: Path, active_scenario: str = "city.json") -> Tuple[GameD
     events = _read_optional(data_dir / "events" / "village_events.json", {}) or {}
     promises = _read_optional(data_dir / "promises" / "rules.json", {}) or {}
     budget = _read_optional(data_dir / "budget" / "constants.json", {}) or {}
+    world = _read_optional(data_dir / "world" / "world.json", {}) or {}
+    if not world:
+        warnings.append("world/world.json отсутствует — свободные действия, ИИ соперников, НПС и события выключены.")
 
     # скелеты верхних уровней (B2-α): читаем метаданные если файлы есть; иначе пустой скелет + warning
     region = _read_optional(data_dir / "scenarios" / "region.json", {}) or {}
@@ -568,6 +576,7 @@ def load_data(data_dir: Path, active_scenario: str = "city.json") -> Tuple[GameD
         budget=budget,
         region=region,
         federation=federation,
+        world=world,
     )
     return data, warnings
 
@@ -793,6 +802,7 @@ def game_to_dict(state: GameState) -> Dict[str, Any]:
         "clippings": list(state.clippings), "bills": list(state.bills), "enacted_laws": list(state.enacted_laws),
         "promises": list(state.promises), "event_log": list(state.event_log),
         "parser_context": dict(state.parser_context), "text_history": list(state.text_history),
+        "world": json.loads(json.dumps(state.world, ensure_ascii=False)),
     }
 
 
@@ -862,4 +872,5 @@ def game_from_dict(data: Dict[str, Any]) -> GameState:
     state.event_log = list(data.get("event_log", []))
     state.parser_context = dict(data.get("parser_context", {}))
     state.text_history = list(data.get("text_history", []))
+    state.world = dict(data.get("world", {}) or {})
     return state

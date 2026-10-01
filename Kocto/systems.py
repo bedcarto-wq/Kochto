@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 import string as _string
 from dataclasses import replace as _replace
 from pathlib import Path
@@ -64,6 +65,8 @@ K_TPL_QUOTES = "quotes"
 K_TPL_CONNECTORS = "connectors"
 K_TPL_SYSMSG = "system_messages"
 K_TPL_EFFPHRASE = "effect_phrases"
+K_TPL_ISSUE_NAMES = "issue_names"          # id темы -> русское название (необязательно)
+K_TPL_SLOT_FALLBACKS = "slot_fallbacks"    # чем заполнить пустой слот текста (необязательно)
 
 K_EFF_TYPE = "type"
 K_EFF_GROUP = "group"
@@ -256,20 +259,29 @@ def log_parser_debug(record: Dict[str, Any]) -> None:
 
 
 # ================= очередь действий =================
-def enqueue_action(state: GameState, action: ActionData, target: str, intent: str, delayed: bool) -> Tuple[bool, str]:
+def enqueue_action(state: GameState, action: ActionData, target: str, intent: str, delayed: bool,
+                   issue: str = "", meta: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     if state.is_game_over:
         return False, "Игра завершена."
     if week_slots_left(state) <= 0:
         return False, "Нет слотов недели (лимит " + str(WEEKLY_ACTION_LIMIT) + ")."
+    meta = dict(meta or {})
     cost = action.cost
+    if action.id == _free_id():
+        cost = int(_wcfg("free_action").get("base_cost", cost)) + tag_cost(meta.get("tags") or [])
     if cost > state.player.money:
         return False, "Недостаточно денег для постановки действия."
     if cost:
         state.player.money -= cost
     state.week_actions.append({"action_id": action.id, "target": target, "intent": intent,
-                               "delayed": bool(delayed), "enqueued_week": state.week, "cost_paid": cost})
+                               "issue": issue or "", "tags": list(meta.get("tags") or []),
+                               "stance": str(meta.get("stance", "") or ""), "offer": str(meta.get("offer", "") or ""),
+                               "raw": str(meta.get("raw", "") or ""), "delayed": bool(delayed), "enqueued_week": state.week, "cost_paid": cost})
     state.actions_this_week += 1
-    return True, "Принято в план недели (слот " + str(len(state.week_actions)) + "/" + str(WEEKLY_ACTION_LIMIT) + ")."
+    chance = estimate_chance(state, state.week_actions[-1])
+    state.week_actions[-1]["chance"] = chance
+    return True, ("Принято в план недели (слот " + str(len(state.week_actions)) + "/" + str(WEEKLY_ACTION_LIMIT) +
+                  "): шанс ~" + str(chance) + "%, цена " + str(cost) + ".")
 
 
 # ================= обещания / коалиции / партии / отказ =================
@@ -378,6 +390,71 @@ def _template_fields(template: str) -> set:
     return fields
 
 
+def _top_issue(group: Any) -> str:
+    issues = getattr(group, "issues", None) or {}
+    if not issues:
+        return ""
+    return max(sorted(issues), key=lambda k: issues[k])
+
+
+def _issue_name(issue_id: str) -> str:
+    names = ((DATA.templates if DATA else {}) or {}).get(K_TPL_ISSUE_NAMES) or {}
+    return str(names.get(issue_id, issue_id))
+
+
+def _fill_empty_slots(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Пустые слоты дают «вокруг .» и «Игрок и » — заполняем их из templates.json."""
+    out = dict(payload)
+    if out.get("issue"):
+        out["issue"] = _issue_name(str(out["issue"]))
+    fallbacks = ((DATA.templates if DATA else {}) or {}).get(K_TPL_SLOT_FALLBACKS) or {}
+    for key, value in fallbacks.items():
+        if not str(out.get(key, "") or "").strip():
+            out[key] = value
+    return out
+
+
+_RE_SPACES = re.compile(r"\s+")
+_RE_SPACE_PUNCT = re.compile(r"\s+([.,:;!?»])")
+_RE_EMPTY_SLOT = re.compile(r"(^|[\s«(])[.,:;—-]\s*[.,:;]|[:—]\s*[.,;]|«\s*»|\(\s*\)|\s[и—]\s*$|:\s*$")
+
+
+def _polish_sentence_case(text: str) -> str:
+    chars = list(text)
+    upper_next = True
+    for i, ch in enumerate(chars):
+        if upper_next and ch.isalpha():
+            chars[i] = ch.upper()
+            upper_next = False
+        elif ch in ".!?":
+            upper_next = True
+    return "".join(chars)
+
+
+def _polish_text(text: str) -> str:
+    text = _RE_SPACES.sub(" ", str(text or "")).strip()
+    text = _RE_SPACE_PUNCT.sub(r"\1", text)
+    text = text.replace("..", ".")
+    seen: List[str] = []
+    for sent in re.split(r"(?<=[.!?])\s+", text):
+        if sent and sent.lower() not in [x.lower() for x in seen]:
+            seen.append(sent)
+    return _polish_sentence_case(" ".join(seen))
+
+
+def _polish_composed(composed: Dict[str, str]) -> Dict[str, str]:
+    out = dict(composed)
+    for key in ("headline", "lead", "body"):
+        if key in out:
+            out[key] = _polish_text(out[key])
+    lead = out.get("lead", "")
+    if lead and out.get("body"):
+        rest = [x for x in re.split(r"(?<=[.!?])\s+", out["body"]) if x and x != lead]
+        if len(rest) >= 2:
+            out["body"] = " ".join(rest)
+    return out
+
+
 def _default_payload(state: GameState) -> Dict[str, Any]:
     g = state.groups[0] if state.groups else None
     p = state.parties[0] if state.parties else None
@@ -387,10 +464,10 @@ def _default_payload(state: GameState) -> Dict[str, Any]:
     return {"group": g.name if g else "", "party": p.name if p else "",
             "candidate": c.name if c else "", "publication": pub.name if pub else "",
             "npc": npc.name if npc else "", "player": state.player.name,
-            "week": state.week, "village": getattr(state.village, "display_name", state.village.name),
+            "week": state.week, "village": state.village.name,
             "level": getattr(state.village, "level", "city"),
             "population": getattr(state.village, "population", 0),
-            "issue": "", "bill": "", "promise": "", "reason": "", "tone": 0.0,
+            "issue": _top_issue(g), "bill": "", "promise": "", "reason": "", "tone": 0.0,
             "facts": "", "title": "", "action_title": "", "tier_word": "",
             "reactors": [], "deltas_words": [], "reason_key": "",
             "tier_distribution": {}, "tone_vector": {}}
@@ -543,6 +620,10 @@ def _validate_composed(state: GameState, composed: Dict[str, str], payload: Dict
         problems.append("duplicate")
     if _too_similar_history(state, full):
         problems.append("similar_history")
+    for part in (hl, composed.get("lead", ""), body):
+        if part and (_RE_EMPTY_SLOT.search(part) or "{" in part or "}" in part):
+            problems.append("empty slot")
+            break
     return problems
 
 
@@ -572,6 +653,7 @@ def _writer_enabled() -> bool:
 def _compose_text(state: GameState, payload: Dict[str, Any], rng: random.Random, kind: str) -> Tuple[Dict[str, str], str]:
     base = _default_payload(state)
     base.update({k: v for k, v in (payload or {}).items() if v is not None})
+    base = _fill_empty_slots(base)
     if _writer_enabled() and not state.free_generator:
         try:
             import nn_writer
@@ -579,6 +661,7 @@ def _compose_text(state: GameState, payload: Dict[str, Any], rng: random.Random,
             templates = (DATA.templates if DATA else {}) or {}
             if kind == "clipping":
                 res = nn_writer.compose_clipping(base, rng, templates)
+                res = _polish_composed(res) if res else res
                 if res and not _validate_composed(state, res, base):
                     _remember_history(state, res)
                     return res, "nn-writer"
@@ -586,18 +669,19 @@ def _compose_text(state: GameState, payload: Dict[str, Any], rng: random.Random,
                 res = nn_writer.compose_news(base, float(base.get("tone", 0.0)),
                                              str(base.get("publication", "")), state.week, rng, templates)
                 if res:
-                    composed = {"headline": res[0], "lead": "", "body": res[1], "reason": base.get("reason", "")}
+                    composed = _polish_composed({"headline": res[0], "lead": "", "body": res[1],
+                                                 "reason": base.get("reason", "")})
                     if not _validate_composed(state, composed, base):
                         _remember_history(state, composed)
                         return composed, "nn-writer"
         except Exception:
             pass
     for _ in range(8):
-        cand = _compose_free(state, base, rng)
+        cand = _polish_composed(_compose_free(state, base, rng))
         if not _validate_composed(state, cand, base):
             _remember_history(state, cand)
             return cand, "gen"
-    fb = _fallback_compose(base)
+    fb = _polish_composed(_fallback_compose(base))
     _remember_history(state, fb)
     return fb, "template-fallback"
 
@@ -646,20 +730,30 @@ def make_news_item(state: GameState, payload: Dict[str, Any], rng: random.Random
 
 
 def selftest_composer(state: GameState, seed: int, n: int = 200) -> List[Tuple[int, List[str], str]]:
+    """Как в игре: ~3 текста в неделю, разные группы и издания, окно повторов 5 недель."""
     rng = random.Random(seed)
     violations: List[Tuple[int, List[str], str]] = []
+    start_week = state.week
     for i in range(n):
+        state.week = start_week + i // 3
         p = _default_payload(state)
         p["tone"] = rng.choice([-0.5, 0.0, 0.5])
         p["player"] = state.player.name
         if state.groups:
-            p["group"] = state.groups[0].name
+            g = state.groups[i % len(state.groups)]
+            p["group"] = g.name
+            p["issue"] = _top_issue(g) if rng.random() < 0.5 else rng.choice(sorted(g.issues or {"": 0}))
         if state.publications:
-            p["publication"] = state.publications[0].name
-        c, _src = _compose_text(state, p, rng, "clipping")
-        probs = [x for x in _validate_composed(state, c, p) if x != "duplicate"]
+            p["publication"] = state.publications[i % len(state.publications)].name
+        c, src = _compose_text(state, p, rng, "clipping")
+        # текст уже записан в историю, поэтому similar_history/duplicate здесь проверять нельзя;
+        # вместо этого считаем нарушением уход в аварийный шаблон (все 8 попыток забракованы)
+        probs = [x for x in _validate_composed(state, c, _fill_empty_slots(p)) if x not in ("duplicate", "similar_history")]
+        if src == "template-fallback":
+            probs.append("fallback")
         if probs:
             violations.append((i, probs, c.get("headline", "")))
+    state.week = start_week
     return violations
 
 
@@ -784,6 +878,8 @@ def _effects_to_words(state: GameState, script: Dict[str, Any]) -> List[str]:
 def _apply_script_effects(state: GameState, script: Dict[str, Any]) -> None:
     for eff in script.get(K_EFFECTS, []):
         et = eff.get(K_EFF_TYPE)
+        if _apply_world_effect(state, eff):
+            continue
         if et == "group_mood":
             g = get_group(state, eff.get(K_EFF_GROUP, ""))
             if g:
@@ -793,8 +889,9 @@ def _apply_script_effects(state: GameState, script: Dict[str, Any]) -> None:
             if g:
                 g.loyalty = clamp(g.loyalty + int(eff.get(K_EFF_DELTA, 0)), 0, 100)
         elif et == "player_stat":
-            cur = getattr(state.player, eff.get(K_EFF_STAT, ""), 0)
-            setattr(state.player, eff.get(K_EFF_STAT, "trust"), clamp(cur + int(eff.get(K_EFF_DELTA, 0)), 0, 100))
+            stat = eff.get(K_EFF_STAT, "trust")
+            cur = int(getattr(state.player, stat, 0))
+            setattr(state.player, stat, clamp(cur + _diminish(stat, cur, int(eff.get(K_EFF_DELTA, 0))), 0, 100))
         elif et == "treasury":
             state.treasury += int(eff.get(K_EFF_DELTA, 0))
         elif et == "player_money":
@@ -857,7 +954,7 @@ def fallback_analyze_action(state: GameState, action: ActionData, tier: str, rng
     distribution = _distribution(tier, cfg, rng, ctx_shift)
     tone_vector = _tone_vector(tier, mag)
     tone = round(tone_vector["polarity"], 2)
-    primary = str(action.title) + ": " + str(tier)
+    primary = str(action.title) + ": " + tier_label(tier)
     secondary: List[str] = []
     for eff in effects[1:]:
         secondary.append(_eff_phrase(state, eff))
@@ -1084,9 +1181,24 @@ def distribute_parliament(state: GameState, rng: random.Random) -> Dict[str, int
 def _run_elections(state: GameState, rng: random.Random) -> None:
     distribute_parliament(state, rng)
     pl = state.player
-    score = pl.awareness + pl.trust - pl.anti_awareness + state.council_seats * 5
-    rivals = sorted(state.candidates, key=lambda c: c.popularity - c.scandal, reverse=True)
-    best = (rivals[0].popularity - rivals[0].scandal) if rivals else 0
+    ecfg = _wcfg("election")
+    if ecfg:
+        pw, rw = ecfg.get("player") or {}, ecfg.get("rival") or {}
+        score = int(round(pl.awareness * float(pw.get("awareness", 1)) + pl.trust * float(pw.get("trust", 1))
+                          + pl.anti_awareness * float(pw.get("anti_awareness", -1))
+                          + state.council_seats * float(pw.get("seat", 5))
+                          + rng.uniform(-float(ecfg.get("noise", 0)), float(ecfg.get("noise", 0)))))
+        inc_id = str(_wcfg("emergent").get("incumbent_candidate", ""))
+        best = 0
+        for c in state.candidates:
+            v = c.popularity * float(rw.get("popularity", 1)) + c.scandal * float(rw.get("scandal", -1))
+            if c.id == inc_id:
+                v += float(ecfg.get("incumbent_bonus", 0))
+            best = max(best, int(round(v)))
+    else:
+        score = pl.awareness + pl.trust - pl.anti_awareness + state.council_seats * 5
+        rivals = sorted(state.candidates, key=lambda c: c.popularity - c.scandal, reverse=True)
+        best = (rivals[0].popularity - rivals[0].scandal) if rivals else 0
     won = score > best
     pl.role = Role.COUNCILOR if (won and state.electoral_system == ElectoralSystem.PROPORTIONAL) \
         else (Role.MAYOR if won else Role.OUTSIDER)
@@ -1138,8 +1250,100 @@ def _party_reactions(state: GameState, rng: random.Random) -> None:
         party.popularity = clamp(party.popularity + drift, 0, 100)
 
 
+def _justice_tick(state: GameState, rng: random.Random, cfg: Dict[str, Any]) -> None:
+    """Правосудие из world.json: тюрьма — эпизод кампании, а не медленная смерть."""
+    pl = state.player
+    js = state.world.setdefault("justice", {"since": 0, "release_week": 0})
+    inv_max = int(_bal(K_BAL_INVESTIGATION_MAX))
+    name = pl.name
+    free = pl.prison_status == PrisonStatus.FREE
+    if free:
+        if pl.evidence > 0:
+            pl.investigation = clamp(pl.investigation + rng.randint(2, 6), 0, inv_max)
+            pl.evidence = clamp(pl.evidence - int(cfg.get("evidence_decay", 0)), 0, 100)
+        else:
+            pl.investigation = clamp(pl.investigation - 2, 0, inv_max)
+        if pl.investigation >= inv_max:
+            pl.prison_status = PrisonStatus.DETAINED
+            js["since"] = state.week
+            add_log(state, "Игрок задержан по делу.")
+    elif pl.prison_status == PrisonStatus.DETAINED:
+        if pl.evidence < int(cfg.get("detained_release_if_evidence_below", 0)):
+            pl.prison_status = PrisonStatus.FREE
+            pl.investigation = int(inv_max * 0.5)
+            add_log(state, "Задержание: улик мало, отпущен под подписку.")
+        elif rng.random() < float(cfg.get("arrest_chance", 0.5)):
+            pl.prison_status = PrisonStatus.ARRESTED
+            add_log(state, "Задержание перешло в арест. Суд через " + str(cfg.get("trial_after_weeks", 3)) + " нед.")
+    elif pl.prison_status == PrisonStatus.ARRESTED:
+        if state.week - int(js.get("since", state.week)) >= int(cfg.get("trial_after_weeks", 3)):
+            v = cfg.get("verdict") or {}
+            spend = min(pl.money, int(v.get("lawyer_max_spend", 0)))
+            pl.money -= spend
+            score = pl.evidence * float(v.get("evidence_weight", 1.5)) \
+                - pl.connections * float(v.get("connections_weight", 0.6)) \
+                - pl.security * float(v.get("security_weight", 0.3)) \
+                - spend / 100.0 * float(v.get("lawyer_per_100", 6)) \
+                + rng.uniform(-float(v.get("random", 25)), float(v.get("random", 25)))
+            if spend:
+                add_log(state, "Адвокаты обошлись в " + str(spend) + ".")
+            if score < float(v.get("threshold", 45)):
+                ac = cfg.get("acquit") or {}
+                pl.prison_status = PrisonStatus.FREE
+                pl.evidence = int(pl.evidence * float(ac.get("evidence_mult", 0.5)))
+                pl.investigation = int(ac.get("investigation", 30))
+                pl.trust = clamp(pl.trust + int(ac.get("trust", 0)), 0, 100)
+                add_log(state, _safe_format(str(ac.get("log", "Оправдан.")), {"name": name}))
+            else:
+                se = cfg.get("sentence") or {}
+                weeks = min(int(se.get("max_weeks", 16)),
+                            int(se.get("base_weeks", 4)) + int(pl.evidence * float(se.get("per_evidence", 0.1))))
+                pl.prison_status = PrisonStatus.PRISON
+                js["release_week"] = state.week + weeks
+                pl.trust = clamp(pl.trust + int(se.get("trust", 0)), 0, 100)
+                pl.awareness = clamp(pl.awareness + int(se.get("awareness", 0)), 0, 100)
+                add_log(state, _safe_format(str(se.get("log", "Приговор: {weeks} нед.")), {"name": name, "weeks": weeks}))
+    elif pl.prison_status == PrisonStatus.PRISON:
+        if state.week >= int(js.get("release_week", 0)):
+            rel = cfg.get("release") or {}
+            pl.prison_status = PrisonStatus.FREE
+            pl.evidence = 0
+            pl.investigation = 0
+            if rel.get("legacy") and rel.get("legacy") not in pl.legacy_tags:
+                pl.legacy_tags.append(str(rel.get("legacy")))
+            add_log(state, _safe_format(str(rel.get("log", "Освобождён.")), {"name": name}))
+    if pl.prison_status == PrisonStatus.FREE:
+        pl.health = clamp(pl.health + int(cfg.get("recovery_health", 0)), 0, 100)
+        pl.stress = clamp(pl.stress - int(cfg.get("recovery_stress", 0)), 0, 100)
+    else:
+        floor = int(cfg.get("custody_health_floor", 15))
+        if pl.health > floor:
+            pl.health = max(floor, pl.health - int(cfg.get("custody_health_drain", 3)))
+        pl.stress = clamp(pl.stress + int(cfg.get("custody_stress", 4)), 0, 100)
+    # покушения при высокой угрозе — единственный путь к смерти кроме старых механик
+    pl.threat = clamp(pl.threat - int(cfg.get("threat_decay", 0)), 0, 100)
+    asn = cfg.get("assassination") or {}
+    over = pl.threat - int(asn.get("min_threat", 101))
+    if asn and over >= 0:
+        chance = (over + 1) * float(asn.get("chance_per_point", 0.0))
+        if pl.prison_status != PrisonStatus.FREE:
+            chance *= float(asn.get("custody_mult", 1.0))
+        if rng.random() < chance:
+            dmg = rng.randint(int(asn.get("damage_min", 20)), int(asn.get("damage_max", 60)))
+            dmg = max(1, int(dmg - pl.security * float(asn.get("security_reduce", 0.5))))
+            pl.health = clamp(pl.health - dmg, 0, 100)
+            add_log(state, _safe_format(str(asn.get("log", "Покушение!")), {"name": name, "dmg": dmg}))
+            pub = rng.choice(state.publications) if state.publications else None
+            push_story(state, pub.name if pub else "", _safe_format(str(asn.get("headline", "")), {"name": name}),
+                       "", -0.6)
+
+
 def _prison_tick(state: GameState, rng: random.Random) -> None:
     pl = state.player
+    jcfg = _wcfg("justice")
+    if jcfg:
+        _justice_tick(state, rng, jcfg)
+        return
     inv_max = int(_bal(K_BAL_INVESTIGATION_MAX))
     if pl.evidence > 0:
         pl.investigation = clamp(pl.investigation + rng.randint(2, 6), 0, inv_max)
@@ -1172,8 +1376,13 @@ def resolve_action(state: GameState, action: ActionData, rng: random.Random) -> 
     raw, total, ok = roll_d100(rng, modifier=modifier, difficulty=difficulty)
     margin = total - difficulty
     cfg = _analyzer_cfg()
-    tier = _tier_from_margin(margin if ok else -margin, cfg[K_AN_TIER_MARGINS])
+    # шкала тиров: отрицательная разница = успех (great <= -30 ... catastrophe > 25).
+    # Раньше успех передавался с плюсом и превращался в «провал/катастрофу».
+    tier = _tier_from_margin(-margin, cfg[K_AN_TIER_MARGINS])
     script = analyze_action(state, action, tier, rng)
+    if str(script.get("primary", "")).endswith(": " + tier):
+        script["primary"] = str(script["primary"])[: -len(tier)] + tier_label(tier)
+    world_effects(state, action, tier, rng, script)
     group = get_group(state, action.target_group_id)
     pub = get_publication(state, "")
     payload = {"tone": script.get("tone", 0.0), "reason": script.get("primary", action.title),
@@ -1186,8 +1395,14 @@ def resolve_action(state: GameState, action: ActionData, rng: random.Random) -> 
                "issue": action.issue or "", "week": state.week,
                "level": getattr(state.village, "level", "city"),
                "population": getattr(state.village, "population", 0)}
-    clipping = make_clipping(state, payload, rng)
-    base_msg = _svc("roll_report", title=action.title, total=total, difficulty=difficulty, tier=tier)
+    tags = list(getattr(action, "tags", []) or [])
+    secret = "secret" in tags or bool(getattr(action, "secret", False))
+    if secret and TIER_SIGN.get(tier, 0) >= 0:
+        clipping: Dict[str, Any] = {}      # тайное при успехе в газеты не попадает
+    else:
+        clipping = make_clipping(state, payload, rng)
+        _free_headline(state, action, clipping, leak=secret)
+    base_msg = _svc("roll_report", title=action.title, total=total, difficulty=difficulty, tier=tier_label(tier))
     arc_no = clipping.get("archive_no", "?")
     wk = clipping.get("week", "?")
     head = clipping.get("headline", "")
@@ -1204,6 +1419,580 @@ def resolve_action(state: GameState, action: ActionData, rng: random.Random) -> 
     return True, ok, text, script, clipping
 
 
+# ================= живой мир: теги, НПС, заявления, события, соперники, доход =================
+def tier_label(tier: str) -> str:
+    return str((_wcfg("tier_labels") or {}).get(tier, tier))
+
+
+def _free_headline(state: GameState, action: ActionData, clipping: Dict[str, Any], leak: bool = False) -> None:
+    cfg = _wcfg("free_news")
+    raw = str(getattr(action, "raw", "") or "")
+    if not cfg or not clipping or (action.id != _free_id() and not leak):
+        return
+    target = ""
+    if action.target_group_id:
+        target = _group_name(state, action.target_group_id)
+    elif action.target_candidate_id:
+        c = get_candidate(state, action.target_candidate_id)
+        target = c.name if c else ""
+    npc_id = getattr(action, "target_npc_id", "")
+    if not target and npc_id:
+        target = next((n.name for n in state.npcs if n.id == npc_id), "")
+    slots = {"player": state.player.name, "target": target or str(cfg.get("default_target", "")),
+             "raw": raw or action.title}
+    if leak:
+        clipping["headline"] = _safe_format(str(cfg.get("leak_headline", "")), slots)
+        clipping["body"] = _safe_format(str(cfg.get("leak_body", "")), slots)
+        clipping["lead"] = ""
+        clipping["tone"] = -0.5
+        return
+    tags = list(getattr(action, "tags", []) or [])
+    heads = cfg.get("headlines") or {}
+    key = next((t for t in (cfg.get("order") or []) if t in tags and t in heads), "default")
+    clipping["headline"] = _safe_format(str(heads.get(key, "")), slots)
+
+def _wcfg(key: str) -> Dict[str, Any]:
+    return dict((((DATA.world if DATA else {}) or {}).get(key)) or {})
+
+
+def _clone_action(base: ActionData, **changes: Any) -> ActionData:
+    """dataclasses.replace теряет setattr-поля (skill/difficulty/effects…) — копируем их."""
+    new = _replace(base, **changes)
+    for k, v in base.__dict__.items():
+        if k not in new.__dict__:
+            setattr(new, k, v)
+    return new
+
+
+def _free_id() -> str:
+    return str(_wcfg("free_action").get("action_id", "free_action"))
+
+
+def push_story(state: GameState, publication: str, headline: str, body: str, tone: float,
+               kind: str = "story") -> Dict[str, Any]:
+    archive_no = state.next_archive_no
+    state.next_archive_no += 1
+    item = {"archive_no": archive_no, "week": state.week, "publication": publication,
+            "headline": _polish_text(headline), "lead": "", "body": _polish_text(body),
+            "tone": float(tone), "source": kind}
+    state.news_feed.append(item)
+    state.clippings.append(item)
+    while len(state.news_feed) > 30:
+        state.news_feed.pop(0)
+    while len(state.clippings) > 40:
+        state.clippings.pop(0)
+    return item
+
+
+def tag_cost(tags: List[str]) -> int:
+    tcfg = _wcfg("tags")
+    return sum(int((tcfg.get(t) or {}).get("cost", 0)) for t in tags or [])
+
+
+def _hot_groups(state: GameState) -> Dict[str, Any]:
+    hot = state.world.get("hot_groups") or {}
+    return {gid: v for gid, v in hot.items() if int(v.get("until", 0)) >= state.week}
+
+
+def _leading_rival(state: GameState) -> Any:
+    if not state.candidates:
+        return None
+    return max(state.candidates, key=lambda c: (c.popularity - c.scandal, c.id))
+
+
+def _apply_world_meta(state: GameState, action: ActionData, qa: Dict[str, Any]) -> ActionData:
+    tags = [str(t) for t in (qa.get("tags") or [])]
+    tcfg = _wcfg("tags")
+    fcfg = _wcfg("free_action")
+    is_free = action.id == _free_id()
+    changes: Dict[str, Any] = {}
+    target = str(qa.get("target", "") or "")
+    npc = None
+    for n in state.npcs:
+        if n.id == target:
+            npc = n
+    if is_free:
+        raw = str(qa.get("raw", "") or "")
+        short = raw if len(raw) <= 48 else raw[:45] + "..."
+        changes["title"] = str(fcfg.get("title_prefix", "Своё действие")) + ": «" + short + "»"
+        if any(c.id == target for c in state.candidates):
+            changes["target_candidate_id"] = target
+    new = _clone_action(action, **changes) if changes else _clone_action(action)
+    diff = int(getattr(new, "difficulty", 0) or _bal(K_BAL_DEFAULT_DIFF))
+    if is_free:
+        diff = int(fcfg.get("base_difficulty", diff))
+        skills = [str((tcfg.get(t) or {}).get("skill", "")) for t in tags if (tcfg.get(t) or {}).get("skill")]
+        if skills:
+            setattr(new, "skill", max(sorted(set(skills)), key=skills.count))
+    diff += sum(int((tcfg.get(t) or {}).get("difficulty", 0)) for t in tags
+                if is_free or t in ("secret", "illegal"))
+    if new.target_group_id and new.target_group_id in _hot_groups(state):
+        diff -= int(fcfg.get("hot_group_bonus", 10))
+    diff = clamp(diff, int(fcfg.get("min_difficulty", 5)), int(fcfg.get("max_difficulty", 95)))
+    setattr(new, "difficulty", diff)
+    setattr(new, "tags", tags)
+    setattr(new, "stance", str(qa.get("stance", "") or ""))
+    setattr(new, "offer", str(qa.get("offer", "") or ""))
+    setattr(new, "raw", str(qa.get("raw", "") or ""))
+    setattr(new, "target_npc_id", npc.id if npc else "")
+    setattr(new, "is_free", is_free)
+    return new
+
+
+def estimate_chance(state: GameState, qa: Dict[str, Any]) -> int:
+    """Шанс успеха в процентах: P(d100 + навык >= сложность)."""
+    action = _effective_action(state, qa)
+    if not action:
+        return 0
+    skill = str(getattr(action, "skill", "") or _bal(K_BAL_DEFAULT_SKILL))
+    mod = int(getattr(state.player, skill, 0)) if skill in SKILL_FIELDS else 0
+    diff = int(getattr(action, "difficulty", 0) or _bal(K_BAL_DEFAULT_DIFF))
+    need = diff - mod
+    return int(clamp(101 - need, 0, 100))
+
+
+def _scaled(delta: Any, scale: float) -> int:
+    d = float(delta) * scale
+    if d == 0:
+        return 0
+    v = int(round(d))
+    if v == 0:
+        v = 1 if d > 0 else -1
+    return v
+
+
+def _resolve_tag_effect(state: GameState, action: ActionData, spec: Dict[str, Any], scale: float) -> Optional[Dict[str, Any]]:
+    et = str(spec.get("type", ""))
+    delta = _scaled(spec.get("delta", 0), scale)
+    if delta == 0 and et != "reveal_rivals":
+        return None
+    out: Dict[str, Any] = {"type": et, "delta": delta}
+    if et in ("player_stat",):
+        out["stat"] = spec.get("stat", "trust")
+        return out
+    if et in ("group_mood", "group_loyalty", "support"):
+        gid = action.target_group_id
+        if not gid:
+            return None
+        out["group"] = gid
+        if et == "support":
+            out["kind"] = "candidate"
+            if spec.get("subject") == "rival":
+                rival = get_candidate(state, action.target_candidate_id) or _leading_rival(state)
+                if rival is None:
+                    return None
+                out["subject"] = rival.name
+            else:
+                out["subject"] = state.player.name
+        return out
+    if et in ("rival_popularity", "rival_scandal", "rival_memory"):
+        rival = get_candidate(state, action.target_candidate_id) or _leading_rival(state)
+        if rival is None:
+            return None
+        out["candidate"] = rival.id
+        return out
+    if et == "reveal_rivals":
+        out["delta"] = 1
+        return out
+    return out
+
+
+def world_effects(state: GameState, action: ActionData, tier: str, rng: random.Random,
+                  script: Dict[str, Any]) -> None:
+    """Добавить в скрипт последствия смысла фразы (теги), разговора с НПС и противоречий."""
+    if not ((DATA.world if DATA else {}) or {}):
+        return
+    effects = script.setdefault(K_EFFECTS, [])
+    sign = TIER_SIGN.get(tier, 0)
+    scale_map = _wcfg("tier_scale")
+    scale = float(scale_map.get(tier, 1.0))
+    if not getattr(action, "is_free", False):
+        scale *= float(_wcfg("free_action").get("catalog_tag_scale", 0.5))
+    tcfg = _wcfg("tags")
+    for t in getattr(action, "tags", []) or []:
+        spec = tcfg.get(t) or {}
+        bucket = spec.get("success", []) if sign >= 0 else spec.get("fail", [])
+        for e in bucket:
+            r = _resolve_tag_effect(state, action, e, scale * (0.5 if sign == 0 else 1.0))
+            if r:
+                effects.append(r)
+    if action.intent == "rumors" and sign > 0:
+        effects.append({"type": "reveal_rivals", "delta": 1})
+    # память соперника: игрок его атаковал
+    if action.target_candidate_id and ("attack" in (getattr(action, "tags", []) or []) or action.intent == "attack"):
+        mem = state.world.setdefault("rival_memory", {}).setdefault(action.target_candidate_id,
+                                                                    {"attacked": 0, "last_move": "", "moves": 0})
+        mem["attacked"] = int(mem.get("attacked", 0)) + 1
+    if getattr(action, "target_npc_id", ""):
+        _npc_talk(state, action, tier, rng, effects)
+    _check_statement(state, action, effects, rng)
+    secondary = script.setdefault("secondary", [])
+    for e in effects:
+        if e.get("type") in ("rival_popularity", "rival_scandal", "npc_loyalty", "reveal_rivals", "party_trust"):
+            secondary.append(_world_eff_phrase(state, e))
+
+
+def _world_eff_phrase(state: GameState, e: Dict[str, Any]) -> str:
+    et = e.get("type")
+    d = int(e.get("delta", 0))
+    sd = ("+" if d > 0 else "") + str(d)
+    if et in ("rival_popularity", "rival_scandal"):
+        c = get_candidate(state, e.get("candidate", ""))
+        what = "популярность" if et == "rival_popularity" else "скандал"
+        return what + " соперника " + (c.name if c else "?") + ": " + sd
+    if et == "npc_loyalty":
+        n = [x for x in state.npcs if x.id == e.get("npc")]
+        return "отношение " + (n[0].name if n else "?") + ": " + sd
+    if et == "party_trust":
+        return "доверие партий к игроку: " + sd
+    if et == "reveal_rivals":
+        return "получены сведения о планах соперников"
+    return str(et) + ": " + sd
+
+
+def _npc_talk(state: GameState, action: ActionData, tier: str, rng: random.Random,
+              effects: List[Dict[str, Any]]) -> None:
+    cfg = _wcfg("npc_talk")
+    npc = [n for n in state.npcs if n.id == action.target_npc_id]
+    if not cfg or not npc:
+        return
+    npc = npc[0]
+    offers = cfg.get("offers") or {}
+    offer_id = getattr(action, "offer", "") or "favor"
+    offer = offers.get(offer_id) or {}
+    traits = (cfg.get("traits") or {}).get(npc.id, {}) or {}
+    trait_val = float(traits.get(str(offer.get("trait", "")), 0.3))
+    mem = state.world.setdefault("npc_memory", {}).setdefault(npc.id, [])
+    window = int(cfg.get("repeat_window", 4))
+    repeats = sum(1 for m in mem if m.get("offer") == offer_id and state.week - int(m.get("week", 0)) <= window)
+    chance = float(cfg.get("base_chance", 35)) + npc.loyalty / 2.0 + trait_val * 30.0 \
+        - repeats * float(cfg.get("repeat_penalty", 15)) + 10.0 * TIER_SIGN.get(tier, 0)
+    chance = max(5.0, min(95.0, chance))
+    ok = rng.uniform(0, 100) < chance
+    delta = int(cfg.get("success_loyalty", 8)) if ok else int(cfg.get("fail_loyalty", -6))
+    effects.append({"type": "npc_loyalty", "npc": npc.id, "delta": delta})
+    if ok:
+        for e in (cfg.get("role_effects") or {}).get(npc.role, []) or []:
+            effects.append(dict(e))
+    elif offer.get("illegal"):
+        for e in cfg.get("illegal_fail", []) or []:
+            effects.append(dict(e))
+    mem.append({"week": state.week, "offer": offer_id, "ok": ok})
+    del mem[:-12]
+    tpl = cfg.get("log_success") if ok else cfg.get("log_fail")
+    add_log(state, _safe_format(str(tpl or "{npc}: {offer}"),
+                                {"npc": npc.name, "offer": offer.get("label", offer_id), "delta": delta}))
+
+
+def _check_statement(state: GameState, action: ActionData, effects: List[Dict[str, Any]], rng: random.Random) -> None:
+    stance = getattr(action, "stance", "")
+    issue = action.issue
+    if not stance or not issue or "secret" in (getattr(action, "tags", []) or []):
+        return
+    cfg = _wcfg("contradiction")
+    st_list = state.world.setdefault("statements", [])
+    window = int(cfg.get("window_weeks", 12))
+    for old in reversed(st_list):
+        if old.get("issue") == issue and old.get("dir") != stance and state.week - int(old.get("week", 0)) <= window:
+            for e in cfg.get("effects", []) or []:
+                effects.append(dict(e))
+            pub = get_publication(state, str(cfg.get("publication", "")))
+            names = cfg.get("dir_names") or {}
+            slots = {"publication": pub.name if pub else "Пресса", "issue": _issue_name(issue),
+                     "player": state.player.name, "old_week": old.get("week", "?"),
+                     "old_dir": names.get(old.get("dir"), old.get("dir")),
+                     "new_dir": names.get(stance, stance)}
+            push_story(state, slots["publication"], _safe_format(str(cfg.get("headline", "")), slots),
+                       _safe_format(str(cfg.get("body", "")), slots), -0.6, "contradiction")
+            add_log(state, "Пресса поймала на противоречии: тема «" + _issue_name(issue) + "».")
+            break
+    st_list.append({"week": state.week, "issue": issue, "dir": stance, "group": action.target_group_id})
+    del st_list[:-40]
+
+
+def _apply_world_effect(state: GameState, eff: Dict[str, Any]) -> bool:
+    et = eff.get(K_EFF_TYPE)
+    d = int(eff.get(K_EFF_DELTA, 0))
+    if et in ("rival_popularity", "rival_scandal"):
+        c = get_candidate(state, eff.get("candidate", ""))
+        if c:
+            if et == "rival_popularity":
+                c.popularity = clamp(c.popularity + d, 0, 100)
+            else:
+                c.scandal = clamp(c.scandal + d, 0, 100)
+        return True
+    if et == "rival_memory":
+        return True
+    if et == "npc_loyalty":
+        for n in state.npcs:
+            if n.id == eff.get("npc"):
+                n.loyalty = clamp(n.loyalty + d, 0, 100)
+        return True
+    if et == "party_trust":
+        for p in state.parties:
+            p.trust_to_player = clamp(p.trust_to_player + d, 0, 100)
+        return True
+    if et == "reveal_rivals":
+        state.world["reveal_pending"] = True
+        return True
+    return False
+
+
+def _reveal_rivals(state: GameState) -> None:
+    cfg = _wcfg("rivals")
+    plans = state.world.get("rival_plans") or {}
+    if not plans:
+        add_log(state, "Разведка: соперники пока ничего не замышляют.")
+        return
+    for cid, p in sorted(plans.items()):
+        c = get_candidate(state, cid)
+        move = ((cfg.get("moves") or {}).get(p.get("move", "")) or {}).get("label", p.get("move", ""))
+        add_log(state, _safe_format(str(cfg.get("reveal_log", "{rival}: {move}")),
+                                    {"rival": c.name if c else cid, "move": move}))
+    state.world["revealed_week"] = state.week
+
+
+def _diminish(stat: str, cur: int, delta: int) -> int:
+    cfg = _wcfg("diminishing")
+    if delta <= 0 or not cfg or stat not in (cfg.get("stats") or []):
+        return delta
+    scaled = int(round(delta * (100 - cur) / 100.0 * float(cfg.get("factor", 1.0))))
+    return max(1 if cur < 100 else 0, min(delta, scaled))
+
+
+def _drift_tick(state: GameState) -> None:
+    cfg = _wcfg("drift")
+    if not cfg or state.week % max(1, int(cfg.get("every_weeks", 1))):
+        return
+    pl = state.player
+    if pl.awareness > int(cfg.get("awareness_floor", 20)):
+        pl.awareness = clamp(pl.awareness - int(cfg.get("awareness_decay", 1)), 0, 100)
+    for c in state.candidates:
+        if c.popularity > int(cfg.get("rival_popularity_floor", 30)):
+            c.popularity = clamp(c.popularity - int(cfg.get("rival_popularity_decay", 0)), 0, 100)
+        elif c.popularity < int(cfg.get("rival_popularity_floor", 30)):
+            c.popularity = clamp(c.popularity + int(cfg.get("rival_popularity_recover", 0)), 0, 100)
+        c.scandal = clamp(c.scandal - int(cfg.get("rival_scandal_decay", 0)), 0, 100)
+    pl.anti_awareness = clamp(pl.anti_awareness - int(cfg.get("anti_decay", 0)), 0, 100)
+    neutral, step = int(cfg.get("trust_neutral", 40)), int(cfg.get("trust_step", 1))
+    if pl.trust > neutral:
+        pl.trust = max(neutral, pl.trust - step)
+    elif pl.trust < neutral and not cfg.get("trust_only_down"):
+        pl.trust = min(neutral, pl.trust + step)
+
+
+def _candidate_income(state: GameState) -> None:
+    cfg = _wcfg("candidate_income")
+    if not cfg or state.player.prison_status != PrisonStatus.FREE:
+        return
+    pl = state.player
+    amount = float(cfg.get("base", 0)) + float(cfg.get("per_awareness", 0)) * pl.awareness \
+        + float(cfg.get("per_trust", 0)) * max(0, pl.trust - int(cfg.get("trust_floor", 0)))
+    amount = max(0, int(amount))
+    pl.money += amount
+    state.world["last_income"] = amount
+
+
+def _emergent_tick(state: GameState, rng: random.Random) -> None:
+    cfg = _wcfg("emergent")
+    if not cfg:
+        return
+    cooldowns = state.world.setdefault("event_cooldowns", {})
+    hot = state.world.setdefault("hot_groups", {})
+    events = sorted(cfg.get("events", []) or [], key=lambda e: -int(e.get("min_pressure", 0)))
+    floor = int(cfg.get("salience_floor", 30))
+    for g in state.groups:
+        issue = _top_issue(g)
+        if not issue:
+            continue
+        pressure = int(g.issues.get(issue, 0) * (100 - g.mood) / 100)
+        ready = state.week - int(cooldowns.get(g.id, -99)) >= int(cfg.get("cooldown_weeks", 4))
+        fired = None
+        if ready and rng.random() < float(cfg.get("chance", 0.35)):
+            for ev in events:
+                allowed = ev.get("groups") or []
+                if pressure >= int(ev.get("min_pressure", 999)) and (not allowed or g.id in allowed):
+                    fired = ev
+                    break
+        if fired:
+            eff = fired.get("effects") or {}
+            g.mood = clamp(g.mood + int(eff.get("group_mood", 0)), 0, 100)
+            g.issues[issue] = clamp(int(g.issues.get(issue, 0)) + int(eff.get("salience", 0)), 0, 100)
+            inc = get_candidate(state, str(cfg.get("incumbent_candidate", "")))
+            if inc:
+                inc.popularity = clamp(inc.popularity + int(eff.get("incumbent_popularity", 0)), 0, 100)
+            cooldowns[g.id] = state.week
+            hot[g.id] = {"until": state.week + int(cfg.get("hot_weeks", 2)), "event": fired.get("label", ""), "issue": issue}
+            pub = rng.choice(state.publications) if state.publications else None
+            slots = {"group": g.name, "issue": _issue_name(issue)}
+            push_story(state, pub.name if pub else "", _safe_format(str(fired.get("headline", "")), slots),
+                       _safe_format(str(fired.get("body", "")), slots), -0.3, "event")
+            add_log(state, _safe_format(str(cfg.get("hot_hint", "{group}: {event}")),
+                                        {"group": g.name, "event": fired.get("label", "")}))
+        else:
+            for k in list(g.issues):
+                if g.issues[k] > floor:
+                    g.issues[k] = g.issues[k] - int(cfg.get("salience_decay", 1))
+    for gid in list(hot):
+        if int(hot[gid].get("until", 0)) < state.week:
+            del hot[gid]
+
+
+def _rivals_tick(state: GameState, rng: random.Random) -> bool:
+    cfg = _wcfg("rivals")
+    if not cfg:
+        return False
+    try:
+        import nn_rivals
+    except Exception:
+        return False
+    for line in nn_rivals.execute(state, cfg, rng, push_story, _issue_name):
+        add_log(state, "Соперник — " + line)
+    nn_rivals.plan(state, cfg, rng)
+    if state.world.pop("reveal_pending", False):
+        _reveal_rivals(state)
+    return True
+
+
+def snapshot(state: GameState) -> Dict[str, Any]:
+    pl = state.player
+    return {"Узнаваемость": pl.awareness, "Доверие": pl.trust, "Антирейтинг": pl.anti_awareness,
+            "Деньги": pl.money, "Угроза": pl.threat, "Улики": pl.evidence,
+            "rivals": {c.name: c.popularity - c.scandal for c in state.candidates},
+            "news": state.next_archive_no}
+
+
+def week_summary(before: Dict[str, Any], state: GameState) -> str:
+    after = snapshot(state)
+    parts: List[str] = []
+    for k, v in before.items():
+        if k in ("rivals", "news"):
+            continue
+        d = int(after[k]) - int(v)
+        if d:
+            parts.append(k + " " + ("+" if d > 0 else "") + str(d))
+    rv: List[str] = []
+    for name, v in (before.get("rivals") or {}).items():
+        d = int(after["rivals"].get(name, v)) - int(v)
+        if d:
+            rv.append(name + " " + ("+" if d > 0 else "") + str(d))
+    text = "Итоги недели: " + (", ".join(parts) if parts else "без изменений")
+    if rv:
+        text += ". Соперники: " + ", ".join(rv)
+    hot = _hot_groups(state)
+    if hot:
+        names = [_group_name(state, gid) + " (" + str(v.get("event", "")) + ")" for gid, v in sorted(hot.items())]
+        text += ". Горячие точки: " + ", ".join(names)
+    return text + "."
+
+
+def target_label(state: GameState, target: str) -> str:
+    if not target:
+        return ""
+    g = get_group(state, target)
+    if g is not None:
+        return _group_name(state, target)
+    c = get_candidate(state, target)
+    if c is not None:
+        return c.name
+    for n in state.npcs:
+        if n.id == target:
+            return n.name
+    party = get_party(state, target)
+    if party is not None:
+        return party.name
+    return _issue_name(target)
+
+
+def plan_lines(state: GameState) -> List[str]:
+    """Строки плана недели для UI: название, цель, шанс, цена."""
+    out: List[str] = []
+    for i, qa in enumerate(state.week_actions, 1):
+        action = ACTIONS.get(str(qa.get("action_id", "")))
+        title = action.title if action else str(qa.get("action_id", ""))
+        raw = str(qa.get("raw", "") or "")
+        if action is not None and action.id == _free_id() and raw:
+            short = raw if len(raw) <= 48 else raw[:48].rsplit(" ", 1)[0] + "…"
+            title = "Своё: «" + short + "»"
+        bits = [title]
+        tgt = target_label(state, str(qa.get("target", "") or ""))
+        if tgt:
+            bits.append("→ " + tgt)
+        if qa.get("issue"):
+            bits.append("тема: " + _issue_name(str(qa.get("issue"))))
+        tail = "шанс ~" + str(qa.get("chance", "?")) + "%, цена " + str(qa.get("cost_paid", 0))
+        if qa.get("delayed"):
+            tail += ", отложено"
+        out.append(str(i) + ". " + " ".join(bits) + " (" + tail + ")")
+    return out
+
+
+def cancel_action(state: GameState, idx: int) -> str:
+    if idx < 1 or idx > len(state.week_actions):
+        return "Нет действия с номером " + str(idx) + ". Сейчас в плане: " + str(len(state.week_actions)) + "."
+    qa = state.week_actions.pop(idx - 1)
+    refund = int(qa.get("cost_paid", 0) or 0)
+    state.player.money += refund
+    state.actions_this_week = max(0, state.actions_this_week - 1)
+    action = ACTIONS.get(str(qa.get("action_id", "")))
+    return "Отменено: " + (action.title if action else str(qa.get("action_id"))) + ". Возврат " + str(refund) + "."
+
+
+def world_report(state: GameState) -> List[str]:
+    """Экран «Город»: соперники, их последние ходы и разведанные планы, горячие точки, НПС."""
+    cfg = _wcfg("rivals")
+    moves = cfg.get("moves") or {}
+    mem = state.world.get("rival_memory") or {}
+    lines: List[str] = ["Соперники (рейтинг − скандал):"]
+    for c in sorted(state.candidates, key=lambda x: -(x.popularity - x.scandal)):
+        m = mem.get(c.id) or {}
+        last = str(m.get("last_move", "") or "")
+        last_lbl = str((moves.get(last) or {}).get("label", last)) if last else "—"
+        lines.append("  · " + c.name + ": поп. " + str(c.popularity) + ", скандал " + str(c.scandal) +
+                     " | последний ход: " + last_lbl + " | атак на тебя: " + str(int(m.get("attacked", 0) or 0)))
+    rw = state.world.get("revealed_week")
+    plans = state.world.get("rival_plans") or {}
+    lines.append("")
+    if rw is not None and int(rw) >= state.week - 1 and plans:
+        lines.append("Разведанные планы (неделя " + str(rw) + "):")
+        for cid, p in sorted(plans.items()):
+            c = get_candidate(state, cid)
+            lbl = str((moves.get(p.get("move", "")) or {}).get("label", p.get("move", "")))
+            grp = _group_name(state, p.get("group", "")) if p.get("group") else ""
+            lines.append("  · " + (c.name if c else cid) + ": " + lbl + (" (" + grp + ")" if grp else ""))
+    else:
+        lines.append("Планы соперников неизвестны. Подсказка: «разведать планы Ложкина».")
+    lines.append("")
+    hot = state.world.get("hot_groups") or {}
+    lines.append("Горячие точки:")
+    if not hot:
+        lines.append("  спокойно")
+    for gid, v in sorted(hot.items()):
+        lines.append("  · " + _group_name(state, gid) + ": " + str(v.get("event", "")) +
+                     " (тема: " + _issue_name(str(v.get("issue", ""))) + ", до нед. " + str(v.get("until", "?")) + ")")
+    lines.append("")
+    lines.append("Группы (настроение / лояльность / главная тема):")
+    for g in state.groups:
+        lines.append("  · " + _group_name(state, g.id) + ": " + str(g.mood) + " / " + str(g.loyalty) +
+                     " / " + (_issue_name(_top_issue(g)) or "—"))
+    lines.append("")
+    lines.append("Люди города (лояльность к тебе):")
+    nmem = state.world.get("npc_memory") or {}
+    for n in state.npcs:
+        last = (nmem.get(n.id) or [])
+        tail = ""
+        if last and isinstance(last[-1], dict):
+            off = str(last[-1].get("offer", ""))
+            lbl = str(((_wcfg("npc_talk").get("offers") or {}).get(off) or {}).get("label", off))
+            tail = " | нед. " + str(last[-1].get("week", "?")) + ": " + lbl + (" — согласился" if last[-1].get("ok") else " — отказал")
+        lines.append("  · " + n.name + " (" + n.role + "): " + str(n.loyalty) + tail)
+    inc = state.world.get("last_income")
+    if inc is not None:
+        lines.append("")
+        lines.append("Пожертвования сторонников за прошлую неделю: +" + str(inc))
+    return lines
+
+
 # ================= двухфазный конец недели с ревизией =================
 def _effective_action(state: GameState, qa: Dict[str, Any]) -> Optional[ActionData]:
     base = ACTIONS.get(qa.get("action_id", ""))
@@ -1211,17 +2000,22 @@ def _effective_action(state: GameState, qa: Dict[str, Any]) -> Optional[ActionDa
         return None
     target = qa.get("target", "")
     intent = qa.get("intent", "")
+    issue = qa.get("issue", "")
+    if issue:
+        base = _clone_action(base, issue=issue)
     if not target:
-        return base
-    if intent in ("meet", "sponsor", "media"):
-        return _replace(base, target_group_id=target)
-    if intent == "attack":
-        return _replace(base, target_candidate_id=target)
+        return _apply_world_meta(state, base, qa)
     if intent == "bill":
-        return _replace(base, issue=target)
-    if intent == "party":
-        return _replace(base, target_group_id=target, issue=target)
-    return base
+        base = _clone_action(base, issue=target)
+    elif intent == "party":
+        base = _clone_action(base, target_group_id=target, issue=target)
+    # цель определяем по тому, что это за сущность, а не по списку интентов
+    # (раньше митинг/обход/сборы теряли группу и били по первой группе в списке)
+    elif get_group(state, target) is not None:
+        base = _clone_action(base, target_group_id=target)
+    elif intent == "attack" or any(c.id == target for c in state.candidates):
+        base = _clone_action(base, target_candidate_id=target)
+    return _apply_world_meta(state, base, qa)
 
 
 def begin_week_end(state: GameState) -> List[Dict[str, Any]]:
@@ -1233,7 +2027,7 @@ def begin_week_end(state: GameState) -> List[Dict[str, Any]]:
         action = _effective_action(state, qa)
         if not action:
             continue
-        if state.player.prison_status == PrisonStatus.ARRESTED and action.intent not in arrested_allowed:
+        if state.player.prison_status in (PrisonStatus.ARRESTED, PrisonStatus.PRISON) and action.intent not in arrested_allowed:
             state.player.money += qa["cost_paid"]
             cancel_script = {"primary": _svc("arrested_cancel"), K_EFFECTS: [], "reactors": [],
                              "tone": -0.2, "secondary": [], "plausibility": 1.0, "delayed": [],
@@ -1318,7 +2112,11 @@ def finish_week(state: GameState, verdicts: List[Dict[str, Any]], rng_unused: Op
     for fact in _week_facts(state, rng):
         make_news_item(state, fact.payload, rng)
     _npc_moves(state, rng)
-    _candidate_moves(state, rng)
+    _candidate_income(state)
+    _drift_tick(state)
+    _emergent_tick(state, rng)
+    if not _rivals_tick(state, rng):
+        _candidate_moves(state, rng)
     _party_reactions(state, rng)
     _prison_tick(state, rng)
     if state.week >= state.next_election_week and not state.is_game_over:

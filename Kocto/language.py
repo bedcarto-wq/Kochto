@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import difflib
+import functools
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -184,6 +185,7 @@ def extract_features(text: str, state: GameState, data: Any) -> Dict[str, Any]:
     intents = _require_intents(data)
     toks = _tokens(text, dicts)
     token_set = set(toks)
+    joined = " " + " ".join(toks) + " "
 
     verb_hits: Dict[str, int] = {}
     for it in _intent_list(intents):
@@ -191,8 +193,8 @@ def extract_features(text: str, state: GameState, data: Any) -> Dict[str, Any]:
         hits = 0
         for v in it.get(K_VERBS, []) or []:
             vv = str(v).lower()
-            if vv in token_set:
-                hits += 1
+            if vv in token_set or (" " in vv and (" " + vv + " ") in joined):
+                hits += 2          # точное совпадение (в т.ч. многословный глагол) весит больше опечатки
             elif _fuzzy_in(vv, toks, dicts):
                 hits += 1
         if hits:
@@ -220,8 +222,69 @@ def _fuzzy_in(needle: str, toks: List[str], dicts: Dict[str, Any]) -> bool:
     typos = dicts.get(K_DICT_TYPOS, {}) or {}
     if needle in typos and str(typos[needle]).lower() in toks:
         return True
-    matches = difflib.get_close_matches(needle, toks, n=1, cutoff=cutoff)
-    return bool(matches)
+    return _close_match(needle, tuple(toks), cutoff)
+
+
+@functools.lru_cache(maxsize=50000)
+def _close_match(needle: str, toks: Tuple[str, ...], cutoff: float) -> bool:
+    # кэш: одни и те же глаголы/алиасы сравниваются с одними и теми же токенами много раз за фразу
+    return bool(difflib.get_close_matches(needle, toks, n=1, cutoff=cutoff))
+
+
+K_DICT_SUFFIXES = "inflection_suffixes"   # окончания для грубого стемминга (необязательно)
+
+
+def _stem_ru(word: str, suffixes: Any) -> str:
+    return _stem_cached(str(word), tuple(suffixes))
+
+
+_SUFFIX_CACHE: Dict[int, Tuple[Any, Tuple[str, ...]]] = {}
+
+
+def _suffixes(dicts: Dict[str, Any]) -> Tuple[str, ...]:
+    raw = dicts.get(K_DICT_SUFFIXES, []) or []
+    hit = _SUFFIX_CACHE.get(id(dicts))
+    if hit is not None and hit[0] is raw:
+        return hit[1]
+    tup = tuple(sorted((str(x) for x in raw), key=len, reverse=True))
+    _SUFFIX_CACHE[id(dicts)] = (raw, tup)
+    return tup
+
+
+@functools.lru_cache(maxsize=100000)
+def _stem_cached(word: str, suffixes: Tuple[str, ...]) -> str:
+    w = word.lower().replace("ё", "е")
+    for suf in suffixes:
+        if w.endswith(suf) and len(w) - len(suf) >= 4:
+            return w[: len(w) - len(suf)]
+    return w
+
+
+def _alias_in(aliases: Any, toks: List[str], dicts: Dict[str, Any]) -> bool:
+    """Совпадение алиаса с фразой с учётом падежей: «пенсионерами» = «пенсионеры»."""
+    alias_list = aliases if isinstance(aliases, list) else [aliases]
+    suffixes = _suffixes(dicts)
+    norm_toks = [t.replace("ё", "е") for t in toks]
+    joined = " " + " ".join(norm_toks) + " "
+    stems = set(_stem_ru(t, suffixes) for t in norm_toks) if suffixes else set()
+    for a in alias_list:
+        aa = str(a).lower().replace("ё", "е").strip()
+        if not aa:
+            continue
+        if " " in aa:
+            if (" " + aa + " ") in joined:
+                return True
+            continue
+        if aa in norm_toks:
+            return True
+        if suffixes and _stem_ru(aa, suffixes) in stems:
+            return True
+        # короткие слова («мэр» → «мэра», «мэром»): основа + известное окончание
+        if suffixes and len(aa) >= 3:
+            for t in norm_toks:
+                if t.startswith(aa) and len(t) - len(aa) <= 3 and t[len(aa):] in suffixes:
+                    return True
+    return False
 
 
 def _detect_entities(toks: List[str], dicts: Dict[str, Any], state: GameState) -> Dict[str, str]:
@@ -230,43 +293,37 @@ def _detect_entities(toks: List[str], dicts: Dict[str, Any], state: GameState) -
 
     groups = dicts.get(K_DICT_GROUPS, {}) or {}
     for gid, aliases in groups.items():
-        alias_list = aliases if isinstance(aliases, list) else [aliases]
-        if any(str(a).lower() in token_set for a in alias_list):
+        if _alias_in(aliases, toks, dicts):
             ents["group"] = str(gid)
             break
 
     issues = dicts.get(K_DICT_ISSUES, {}) or {}
     for iid, aliases in issues.items():
-        alias_list = aliases if isinstance(aliases, list) else [aliases]
-        if any(str(a).lower() in token_set for a in alias_list):
+        if _alias_in(aliases, toks, dicts):
             ents["issue"] = str(iid)
             break
 
     npcs = dicts.get(K_DICT_NPCS, {}) or {}
     for nid, aliases in npcs.items():
-        alias_list = aliases if isinstance(aliases, list) else [aliases]
-        if any(str(a).lower() in token_set for a in alias_list):
+        if _alias_in(aliases, toks, dicts):
             ents["npc"] = str(nid)
             break
 
     rivals = dicts.get(K_DICT_RIVALS, {}) or {}
     for rid, aliases in rivals.items():
-        alias_list = aliases if isinstance(aliases, list) else [aliases]
-        if any(str(a).lower() in token_set for a in alias_list):
+        if _alias_in(aliases, toks, dicts):
             ents["rival"] = str(rid)
             break
 
     parties = dicts.get(K_DICT_PARTIES, {}) or {}
     for pid, aliases in parties.items():
-        alias_list = aliases if isinstance(aliases, list) else [aliases]
-        if any(str(a).lower() in token_set for a in alias_list):
+        if _alias_in(aliases, toks, dicts):
             ents["party"] = str(pid)
             break
 
     pubs = dicts.get(K_DICT_PUBS, {}) or {}
     for pbid, aliases in pubs.items():
-        alias_list = aliases if isinstance(aliases, list) else [aliases]
-        if any(str(a).lower() in token_set for a in alias_list):
+        if _alias_in(aliases, toks, dicts):
             ents["publication"] = str(pbid)
             break
 
@@ -294,10 +351,11 @@ def _detect_negation(toks: List[str], dicts: Dict[str, Any]) -> bool:
     bucket = dicts.get(K_DICT_NEGATION, []) or []
     alias_list = bucket if isinstance(bucket, list) else [bucket]
     token_set = set(toks)
-    joined = " ".join(toks)
+    # только целые слова/фразы: раньше «не» находилось внутри «пенсионерами» и отменяло действие
+    joined = " " + " ".join(toks) + " "
     for a in alias_list:
-        aa = str(a).lower()
-        if aa in token_set or aa in joined:
+        aa = str(a).lower().strip()
+        if aa and (aa in token_set or (" " + aa + " ") in joined):
             return True
     return False
 
@@ -331,7 +389,8 @@ def _score_intent(it: Dict[str, Any], features: Dict[str, Any], dicts: Dict[str,
     verbs = it.get(K_VERBS, []) or []
     if not verbs:
         return 0.0, iid, ""
-    verb_hit = 1 if features["verb_hits"].get(iid, 0) > 0 else 0
+    vh = int(features["verb_hits"].get(iid, 0))
+    verb_hit = 1.0 if vh >= 2 else (0.8 if vh > 0 else 0.0)
     ents = features["entities"]
     allowed = set(str(x) for x in (it.get(K_ENTITIES, []) or []))
     target_kind, target_id = _resolve_target(allowed, ents, it)
@@ -339,6 +398,8 @@ def _score_intent(it: Dict[str, Any], features: Dict[str, Any], dicts: Dict[str,
     issue_present = 1 if (ents.get("issue") and "issue" in allowed) else 0
 
     base = (verb_hit + target_present + 0.5 * issue_present) / 2.0
+    if not verb_hit:
+        base *= 0.7     # без глагола тип действия — догадка: не перебивает явно названное действие
     modality = features["modality"]
     mod_def = str(it.get(K_MODALITY_DEF, "public")).lower()
     mod_weight = 1.0
@@ -358,6 +419,21 @@ def _score_intent(it: Dict[str, Any], features: Dict[str, Any], dicts: Dict[str,
 
     action_id = _map_action(it, target_kind, target_id)
     return conf, iid, action_id
+
+
+def _memory_target(intent_id: str, features: Dict[str, Any], intents: Any) -> str:
+    """Память помнит действие, но цель берётся из текущей фразы (раньше терялась)."""
+    allowed: set = set()
+    it_found: Dict[str, Any] = {}
+    for it in _intent_list(intents):
+        if str(it.get(K_INTENT_ID, "")) == intent_id:
+            it_found = it
+            allowed = set(str(x) for x in (it.get(K_ENTITIES, []) or []))
+            break
+    if not allowed:
+        allowed = {"rival", "group", "party", "publication", "npc"}
+    _kind, target_id = _resolve_target(allowed, features.get("entities", {}), it_found)
+    return target_id
 
 
 def _resolve_target(allowed: set, ents: Dict[str, str], it: Dict[str, Any]) -> Tuple[str, str]:
@@ -420,7 +496,7 @@ def type_law_text(text: str, state: GameState, data: Any) -> Dict[str, Any]:
 
 
 # ================= разбор одной фразы (правило+память+конструкция) =================
-def _parse_one(text: str, state: GameState, memory: Dict[str, Any], data: Any) -> Dict[str, Any]:
+def _parse_one_core(text: str, state: GameState, memory: Dict[str, Any], data: Any) -> Dict[str, Any]:
     dicts = _require_dicts(data)
     intents = _require_intents(data)
     level = getattr(state, "active_level", "city") or "city"
@@ -433,14 +509,17 @@ def _parse_one(text: str, state: GameState, memory: Dict[str, Any], data: Any) -
         return {"status": ParseStatus.UNKNOWN, "message": "Пустая фраза."}
 
     # 1) память фраз (LRU из main): готовый action_id
+    features = extract_features(text, state, data)
+
     mem = memory.get(norm) if isinstance(memory, dict) else None
     if isinstance(mem, dict) and mem.get("id"):
+        mem_intent = str(mem.get("intent", ""))
         return {"status": ParseStatus.PARSED, "source": "memory",
-                "id": str(mem["id"]), "intent": str(mem.get("intent", "")),
-                "target": "", "delayed": False, "confidence": 1.0, "needs_body": False,
+                "id": str(mem["id"]), "intent": mem_intent,
+                "target": _memory_target(mem_intent, features, intents),
+                "issue": str(features["entities"].get("issue", "")),
+                "delayed": bool(features["delayed"]), "confidence": 1.0, "needs_body": False,
                 "message": "Распознано по памяти."}
-
-    features = extract_features(text, state, data)
 
     # 2) память конструкций (обученные формулировки)
     mc = match_construction(features)
@@ -448,7 +527,9 @@ def _parse_one(text: str, state: GameState, memory: Dict[str, Any], data: Any) -
         intent_id, action_id = mc
         if action_id:
             return {"status": ParseStatus.PARSED, "source": "construction",
-                    "id": action_id, "intent": intent_id, "target": "",
+                    "id": action_id, "intent": intent_id,
+                    "target": _memory_target(intent_id, features, intents),
+                    "issue": str(features["entities"].get("issue", "")),
                     "delayed": bool(features["delayed"]), "confidence": 0.9, "needs_body": False,
                     "message": "Распознано по конструкции."}
 
@@ -487,7 +568,8 @@ def _parse_one(text: str, state: GameState, memory: Dict[str, Any], data: Any) -
         needs_body = (best_iid == "law_custom")
         return {"status": ParseStatus.PARSED, "source": "parser",
                 "id": best_action or best_iid, "intent": best_iid,
-                "target": target_id, "delayed": bool(features["delayed"]),
+                "target": target_id, "issue": str(features["entities"].get("issue", "")),
+                "delayed": bool(features["delayed"]),
                 "confidence": round(best_conf, 3), "needs_body": needs_body,
                 "message": ""}
 
@@ -537,12 +619,141 @@ def _contextual_fallback(features: Dict[str, Any], intents: Dict[str, Any], leve
     return None
 
 
+# ================= свободные действия (теги смысла вместо каталога) =================
+def _world(data: Any) -> Dict[str, Any]:
+    return dict(getattr(data, "world", {}) or {})
+
+
+def detect_tags(toks: List[str], data: Any) -> List[str]:
+    """Теги смысла фразы: публично/тайно/деньги/пресса/атака/помощь/… из world.json."""
+    dicts = getattr(data, "dictionaries", {}) or {}
+    tags = (_world(data).get("tags") or {})
+    out: List[str] = []
+    for tag_id in sorted(tags):
+        if _alias_in(tags[tag_id].get("words", []), toks, dicts):
+            out.append(tag_id)
+    return out
+
+
+def detect_stance(toks: List[str], data: Any) -> str:
+    dicts = getattr(data, "dictionaries", {}) or {}
+    words = _world(data).get("stance_words") or {}
+    up = _alias_in(words.get("up", []), toks, dicts)
+    down = _alias_in(words.get("down", []), toks, dicts)
+    if up and not down:
+        return "up"
+    if down and not up:
+        return "down"
+    return ""
+
+
+def detect_npc_offer(toks: List[str], data: Any) -> str:
+    dicts = getattr(data, "dictionaries", {}) or {}
+    offers = ((_world(data).get("npc_talk") or {}).get("offers") or {})
+    for oid in sorted(offers):
+        if _alias_in(offers[oid].get("words", []), toks, dicts):
+            return oid
+    return ""
+
+
+def _free_target(ents: Dict[str, str]) -> str:
+    for kind in ("npc", "rival", "group", "party", "publication"):
+        if ents.get(kind):
+            return str(ents[kind])
+    return ""
+
+
+def _exact_verb_parse(feats: Dict[str, Any], state: GameState, data: Any) -> Optional[Dict[str, Any]]:
+    """Фраза без цели («собрать пожертвования»): если ровно один тип действия назван точным глаголом — берём его."""
+    hits = feats.get("verb_hits") or {}
+    exact = [iid for iid, v in hits.items() if int(v) >= 2]
+    if len(exact) != 1:
+        return None
+    intents = _require_intents(data)
+    level = getattr(state, "active_level", "city") or "city"
+    for it in _intent_list(intents):
+        if str(it.get(K_INTENT_ID, "")) != exact[0]:
+            continue
+        conf, iid, action_id = _score_intent(it, feats, {}, level)
+        allowed = set(str(x) for x in (it.get(K_ENTITIES, []) or []))
+        _kind, target_id = _resolve_target(allowed, feats.get("entities", {}), it)
+        if iid == "law_custom":
+            return None
+        return {"status": ParseStatus.PARSED, "source": "verb", "id": action_id or iid, "intent": iid,
+                "target": target_id, "issue": str(feats.get("entities", {}).get("issue", "")),
+                "delayed": bool(feats.get("delayed")), "confidence": round(max(conf, 0.6), 3),
+                "needs_body": False, "message": ""}
+    return None
+
+
+def _parse_one(text: str, state: GameState, memory: Dict[str, Any], data: Any) -> Dict[str, Any]:
+    result = _parse_one_core(text, state, memory, data)
+    world = _world(data)
+    if not world.get("tags"):
+        return result
+    dicts = _require_dicts(data)
+    toks = _tokens(text, dicts)
+    feats = extract_features(text, state, data)
+    ents = feats.get("entities", {})
+    tags = detect_tags(toks, data)
+    status = result.get("status")
+    npc_talk = bool(ents.get("npc")) and result.get("intent") not in ("free",)
+    unclear = status in (ParseStatus.NEEDS_REFORMULATION, ParseStatus.UNKNOWN, ParseStatus.NEEDS_CHOICE)
+    # угадано без глагола (по группе/теме/контексту), а теги фразы говорят больше — делаем «своё действие»
+    guessed = bool(tags) and status == ParseStatus.PARSED and result.get("source") not in ("memory",) \
+        and str(result.get("intent", "")) not in (feats.get("verb_hits") or {}) and result.get("intent") != "law_custom"
+    if unclear and not npc_talk:
+        verb_pick = _exact_verb_parse(feats, state, data)
+        if verb_pick is not None:
+            result, status, unclear, guessed = verb_pick, ParseStatus.PARSED, False, False
+    if status != ParseStatus.CANCELLED and ((unclear and (tags or ents)) or npc_talk or guessed):
+        fa = world.get("free_action") or {}
+        result = {"status": ParseStatus.PARSED, "source": "free",
+                  "id": str(fa.get("action_id", "free_action")), "intent": "free",
+                  "target": _free_target(ents), "delayed": bool(feats.get("delayed")),
+                  "confidence": 0.75, "needs_body": False,
+                  "message": "Своё действие: смысл собран из фразы."}
+    if result.get("status") == ParseStatus.PARSED:
+        for route in world.get("tag_routes") or []:
+            if route.get("tag") in tags and not any(t in tags for t in route.get("unless") or []):
+                result["id"] = str(route.get("action", result.get("id")))
+                result["intent"] = str(route.get("intent", result.get("intent")))
+                result["target"] = result.get("target") or _free_target(ents)
+                break
+        result.setdefault("issue", str(ents.get("issue", "")))
+        result["tags"] = tags
+        result["stance"] = detect_stance(toks, data)
+        result["offer"] = detect_npc_offer(toks, data) if ents.get("npc") else ""
+        result["raw"] = text.strip()
+        if not result.get("target") and result.get("intent") == "free":
+            result["target"] = _free_target(ents)
+    return result
+
+
 # ================= разбиение на части (>3 действий -> отказ) =================
 def _split_parts(text: str, dicts: Dict[str, Any]) -> List[str]:
     seps = dicts.get(K_DICT_SEPARATORS, []) or []
     pattern = "|".join(re.escape(str(s)) for s in seps) if seps else r"[;,]"
     parts = [p.strip() for p in re.split(pattern, text) if p.strip()]
     return parts
+
+
+def _merge_offer_parts(parts: List[str], state: GameState, data: Any, dicts: Dict[str, Any]) -> List[str]:
+    """«поговорить с редактором и предложить должность» — одно действие с НПС, а не два."""
+    if len(parts) < 2 or not _world(data).get("npc_talk"):
+        return parts
+    out: List[str] = [parts[0]]
+    for part in parts[1:]:
+        try:
+            prev_npc = (extract_features(out[-1], state, data).get("entities") or {}).get("npc")
+            own_npc = (extract_features(part, state, data).get("entities") or {}).get("npc")
+        except Exception:
+            prev_npc, own_npc = None, None
+        if prev_npc and not own_npc and detect_npc_offer(_tokens(part, dicts), data):
+            out[-1] = out[-1] + " и " + part
+        else:
+            out.append(part)
+    return out
 
 
 # ================= A/B канал (парсер vs НС-recognizer) =================
@@ -568,7 +779,7 @@ def _nn_proposal(text: str, state: GameState, data: Any) -> Optional[Dict[str, A
 # ================= главный вход =================
 def parse_text(text: str, state: GameState, memory: Dict[str, Any], data: Any) -> Dict[str, Any]:
     dicts = _require_dicts(data)
-    parts = _split_parts(text, dicts)
+    parts = _merge_offer_parts(_split_parts(text, dicts), state, data, dicts)
     if len(parts) > 3:
         return {"status": ParseStatus.TOO_MANY_ACTIONS, "actions": [], "ab_proposals": [],
                 "message": "Больше трёх действий в одной фразе — разбей на отдельные команды."}
@@ -599,7 +810,8 @@ def parse_text(text: str, state: GameState, memory: Dict[str, Any], data: Any) -
             continue
 
         actions.append({k: parsed.get(k) for k in
-                        ("id", "intent", "target", "delayed", "confidence", "source", "needs_body")})
+                        ("id", "intent", "target", "issue", "delayed", "confidence", "source", "needs_body",
+                         "tags", "stance", "offer", "raw")})
 
     if use_ab and ab_proposals and not actions:
         return {"status": ParseStatus.PARSED, "actions": [], "ab_proposals": ab_proposals,
