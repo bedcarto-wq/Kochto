@@ -1,0 +1,18 @@
+{
+  "prefixes": ["тайно", "публично", "лично", "законно", "незаконно"],
+  "suggestions": ["Встретиться с рабочими о сокращениях", "Дать интервью газете Кочто сегодня о медицине", "Организовать субботник с рабочими"],
+  "topic_prepositions": ["о", "об", "про", "за", "против"],
+  "frames": [
+    {"type":"meeting", "starts":["встретиться", "провести встречу", "встретимся"], "target_prepositions":["с", "со"], "requires_target":true, "continuations":["обсудить", "объяснить"]},
+    {"type":"interview", "starts":["дать интервью"], "target_prepositions":["газете", "в газете"], "requires_target":true},
+    {"type":"volunteer_work", "starts":["организовать субботник"], "target_prepositions":["с", "со"], "requires_target":false},
+    {"type":"criticism", "starts":["раскритиковать"], "target_prepositions":[], "direct_target":true, "requires_target":true},
+    {"type":"bribe", "starts":["подкупить"], "target_prepositions":[], "direct_target":true, "requires_target":true},
+    {"type":"promise", "starts":["пообещать"], "target_prepositions":[], "direct_target":true, "requires_target":true, "continuations":["решить"]}
+  ],
+  "visibility": {"public":["публично"], "secret":["тайно"]},
+  "channel": {"personal":["лично"], "newspaper":["газету", "газете"], "leaflets":["листовки"], "contacts":["знакомых"]},
+  "legality": {"legal":["законно"], "illegal":["незаконно"]},
+  "place": {"factory_gate":["проходной"], "market":["рынке"]},
+  "event": {"fair":["ярмарки", "ярмарке"]}
+}
