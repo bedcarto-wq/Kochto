@@ -287,8 +287,8 @@ def run() -> int:
         session.install()
         semantic = None
         try:
-            from semantic_runtime import SemanticRuntime
-            semantic = SemanticRuntime.from_file(engine, engine.DATA_DIR / 'world' / 'semantic.json', allocation)
+            from dossiers import DossierRuntime
+            semantic = DossierRuntime.from_file(engine, engine.DATA_DIR / 'world' / 'semantic.json', allocation)
             semantic.install()
             sys.argv = [original_args[0]] + remaining
             return engine.run()
