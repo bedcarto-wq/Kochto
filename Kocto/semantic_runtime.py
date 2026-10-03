@@ -1,8 +1,10 @@
 """Confirmed semantic actions integrated through reversible engine hooks.
 
-First live slice: meeting, interview, volunteer_work. Other catalog buttons
-remain legacy. Free-form unsupported input NEVER falls back to tag guessing.
-Effects are generated here but applied only by the engine's finish_week.
+Live types: meeting, interview, volunteer_work, canvassing, petition, promise.
+Other catalog buttons remain legacy. Free-form unsupported input NEVER falls
+back to tag guessing. Effects are generated here but applied only by the
+engine's finish_week. Also owns: three-skill chances, promise tracking,
+campaign calendar (first election 24) and the week-96 mayor goal.
 """
 from __future__ import annotations
 
@@ -14,11 +16,14 @@ from pathlib import Path
 
 from semantic_actions import ActionCard, ActionContext, CardError, Evidence, evaluate_action
 from semantic_parser import parse_action
+import skills as skillset
 
 KEY = '__semantic_cards__'
 PENDING = 'pending_semantic'
 HISTORY = 'semantic_history'
-LABELS = {'meeting': 'Встреча', 'interview': 'Интервью', 'volunteer_work': 'Субботник'}
+LABELS = {'meeting': 'Встреча', 'interview': 'Интервью', 'volunteer_work': 'Субботник',
+          'canvassing': 'Поквартирный обход', 'petition': 'Сбор подписей', 'promise': 'Обещание'}
+PROMISES = 'semantic_promises'
 REASONS = {'topic_target': 'Тема и интересы адресата', 'channel_target': 'Канал общения',
            'place_time': 'Место и событие', 'method_goal': 'Способ и цель',
            'resources_scale': 'Ресурсы', 'consistency': 'Последовательность позиции',
@@ -33,16 +38,17 @@ def reply(message):
 
 
 class SemanticRuntime:
-    def __init__(self, engine, config):
+    def __init__(self, engine, config, allocation=None):
         self.engine = engine
         self.systems = engine.systems
         self.config = copy.deepcopy(config)
         self.original = []
         self.review = None
+        self.allocation = allocation
 
     @classmethod
-    def from_file(cls, engine, path):
-        return cls(engine, json.loads(Path(path).read_text(encoding='utf-8')))
+    def from_file(cls, engine, path, allocation=None):
+        return cls(engine, json.loads(Path(path).read_text(encoding='utf-8')), allocation)
 
     def fingerprint(self):
         data = self.systems.DATA
@@ -91,7 +97,7 @@ class SemanticRuntime:
     def validate(self, state, card):
         spec = self.config['actions'].get(card.action_type)
         if spec is None:
-            raise CardError('Этот тип пока не подключён к смысловому ходу. Поддержаны встреча, интервью и субботник.')
+            raise CardError('Этот тип пока не подключён к смысловому ходу. Поддержаны: ' + ', '.join(LABELS.values()).lower() + '.')
         if card.target_kind != spec['target_kind'] or card.target_id not in self.entities(state).get(card.target_kind, {}):
             raise CardError('Укажи существующего адресата: ' + spec['target_kind'] + '.')
         if not card.topic or card.topic not in self.config['topics']:
@@ -121,7 +127,7 @@ class SemanticRuntime:
                                 repetitions=repetitions,
                                 consistency=self.config['contradiction_factor'] if conflicting else 1.0,
                                 event_place_match=profile.get('places', {}).get(card.place, 1.0))
-        skill = max(0, min(100, getattr(state.player, spec['skill'])))
+        skill = skillset.value(state, spec['skill'], spec.get('legacy_skill'))
         base = min(100, max(0, spec['base_chance'] + skill * spec['skill_weight']))
         result = evaluate_action(replace(card, confirmed=True), base, 1.0, profile, self.config['rules'], context)
         return result, cost
@@ -252,7 +258,7 @@ class SemanticRuntime:
             if low in SERVICE or low.startswith(('отзыв', 'детализация ', 'отменить ', 'отмена ', 'внеси закон ', 'закон ', 'выбор ')) or low in ('отмена', 'отменить'):
                 return self.old_handle(state, rng, command, memory)
             if low.startswith('action:'):
-                if low in ('action:meet_group', 'action:article', 'action:free_action'):
+                if low in ('action:meet_group', 'action:article', 'action:free_action', 'action:canvassing', 'action:petition'):
                     return reply('Введи действие с адресатом и темой. Например: встретиться с рабочими о работе.')
                 return self.old_handle(state, rng, command, memory)
             if low.startswith('исправить '):
@@ -335,9 +341,69 @@ class SemanticRuntime:
             raise RuntimeError('Сначала нужно рассчитать результаты недели.')
         records = [{'week': state.week, 'card': item['script']['semantic_card'], 'success': item.get('success', False)}
                    for item in self.review if 'semantic_card' in item['script']]
+        week = state.week
         self.old_finish(state, verdicts, rng_unused)
         state.world[HISTORY] = (state.world.get(HISTORY, []) + records)[-200:]
         self.review = None
+        self.track_promises(state, records, week)
+        self.check_goal(state, week)
+
+    def adjust(self, state, group_id, mood, trust):
+        group = self.systems.get_group(state, group_id)
+        if group is not None:
+            group.mood = max(0, min(100, group.mood + mood))
+        state.player.trust = max(0, state.player.trust + trust)
+
+    def track_promises(self, state, records, week):
+        # Kept by a later matching deed; broken by an opposite stance on the
+        # same topic or by an expired deadline. Effects applied exactly once.
+        rules = self.config['promises']
+        promises = state.world.setdefault(PROMISES, [])
+        for record in records:
+            card = record['card']
+            for promise in promises:
+                if promise['status'] != 'active' or promise['week'] >= week:
+                    continue
+                same_topic = card['topic'] == promise['topic']
+                if same_topic and card['stance'] and promise['stance'] and card['stance'] != promise['stance']:
+                    promise.update(status='broken', closed=week, reason='противоположная позиция: ' + card['raw'])
+                elif (same_topic and record['success'] and card['target_id'] == promise['target_id']
+                      and card['action_type'] in rules['fulfil_types'] and card['stance'] == promise['stance']):
+                    promise.update(status='kept', closed=week, reason=card['raw'])
+        for record in records:
+            card = record['card']
+            if card['action_type'] == 'promise' and record['success']:
+                promises.append({'week': week, 'deadline': week + rules['deadline_weeks'], 'target_id': card['target_id'],
+                                 'topic': card['topic'], 'stance': card['stance'], 'text': card['raw'], 'status': 'active'})
+        for promise in promises:
+            if promise['status'] == 'active' and week >= promise['deadline']:
+                promise.update(status='broken', closed=week, reason='срок истёк без дела')
+        for promise in promises:
+            if promise['status'] in ('kept', 'broken') and not promise.get('applied'):
+                effect = rules[promise['status']]
+                self.adjust(state, promise['target_id'], effect['group_mood'], effect['trust'])
+                promise['applied'] = True
+                word = 'выполнено' if promise['status'] == 'kept' else 'нарушено'
+                self.systems.add_log(state, f'Обещание «{promise["text"]}» {word}: {promise["reason"]}.')
+        state.world[PROMISES] = promises[-100:]
+
+    def check_goal(self, state, completed_week):
+        calendar = self.config['calendar']
+        role = getattr(state.player.role, 'value', state.player.role)
+        flags = state.world.setdefault('campaign_goal', {})
+        if role == calendar['goal_role'] and not flags.get('reached'):
+            flags['reached'] = completed_week
+            self.systems.add_log(state, f'Цель достигнута: ты мэр на {completed_week}-й неделе. Игра продолжается.')
+        elif completed_week >= calendar['goal_week'] and not flags.get('reached') and not flags.get('missed'):
+            flags['missed'] = completed_week
+            self.systems.add_log(state, f'Цель «стать мэром к {calendar["goal_week"]}-й неделе» не достигнута. Кампания продолжается.')
+
+    def new_game(self, *args, **kwargs):
+        state, rng = self.old_new_game(*args, **kwargs)
+        state.next_election_week = self.config['calendar']['first_election_week']
+        if self.allocation is not None:
+            skillset.apply(state, self.allocation)
+        return state, rng
 
     def clear(self, state):
         state.parser_context.pop(PENDING, None)
@@ -354,12 +420,15 @@ class SemanticRuntime:
         if self.original:
             raise RuntimeError('Semantic runtime already installed')
         hooks = [(self.engine, 'handle_command', 'old_handle', self.handle),
+                 (self.engine, 'new_game', 'old_new_game', self.new_game),
                  (self.engine, '_clear_pending', 'old_clear', self.clear),
                  (self.systems, '_effective_action', 'old_effective', self.effective),
                  (self.systems, 'resolve_action', 'old_resolve', self.resolve),
                  (self.systems, 'begin_week_end', 'old_begin', self.begin),
                  (self.systems, 'finish_week', 'old_finish', self.finish),
                  (self.systems, 'plan_lines', 'old_plan', self.plan)]
+        # Read all originals before mutation, so an incompatible engine leaves
+        # no partially installed hooks.
         prepared = [(obj, name, alias, function, getattr(obj, name)) for obj, name, alias, function in hooks]
         for obj, name, alias, function, original in prepared:
             setattr(self, alias, original)
