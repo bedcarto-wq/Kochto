@@ -1,4 +1,4 @@
-"""Semantic action foundation. Not yet enabled in the weekly game loop.
+"""Semantic action foundation; live adapters are in semantic_runtime.py.
 
 Only consumes structured, confirmed cards. It deliberately does NOT infer
 syntax, world facts or intentions from keywords. No optional dependencies.
@@ -103,7 +103,6 @@ class ActionCard:
             raise CardError('confirmed must be a boolean')
         if not isinstance(self.resources, Mapping):
             raise CardError('resources must be a mapping')
-        # Own copies: later changes to caller data must not alter this card.
         object.__setattr__(self, 'resources', dict(self.resources))
         for key, value in self.resources.items():
             if key not in ('money', 'people', 'connections'):
@@ -122,7 +121,12 @@ class ActionCard:
                 raise CardError('invalid evidence provenance')
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        # JSON-native sequences keep checkpoint roundtrips identical, not
+        # merely semantically equivalent (tuple before save vs list after).
+        value = asdict(self)
+        value['facts'] = list(value['facts'])
+        value['evidence'] = list(value['evidence'])
+        return value
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> ActionCard:
@@ -151,7 +155,6 @@ class ActionCard:
                          if ev.linked and ev.source == 'player' and self.present(ev.field))
 
     def signature(self) -> str:
-        # Wording/spans/confirmation do not create novelty; content does.
         data = self.to_dict()
         for key in ('raw', 'evidence', 'confirmed', 'schema_version'):
             data.pop(key)
@@ -252,7 +255,6 @@ def evaluate_action(card: ActionCard, base_chance: float, base_effect: float,
         Reason('repetition', repeat, repeat, f'previous uses={context.repetitions}'),
     ]
     authored = card.authored_fields()
-    # Explicit syntax-linked slots only. No raw-length, word-count or tag bonus.
     specific = len(authored - {'facts', 'action_type'})
     verified_facts = set(card.facts) & set(context.known_facts) if 'facts' in authored else set()
     score = specific * field_bonus + len(verified_facts) * fact_bonus
@@ -268,8 +270,6 @@ def evaluate_action(card: ActionCard, base_chance: float, base_effect: float,
     for reason in reasons:
         chance *= reason.chance_factor
         effect *= reason.effect_factor
-    # Zero-reach, impossible resources or method stays impossible, even with
-    # creativity. A lower display bound must never rescue impossible actions.
     possible = all(r.chance_factor > 0 for r in reasons)
     chance = min(max_chance, max(min_chance, chance + bonus)) if possible else 0.0
     return Evaluation(round(chance, 3), round(effect, 3), bonus, multiplier, tuple(reasons))
@@ -289,7 +289,6 @@ class ConfirmedCardMemory:
 
     @staticmethod
     def key(text: str) -> str:
-        # Keep negation and prepositions. Do not apply old stopword stripping.
         return ' '.join(text.casefold().split())
 
     def remember(self, card: ActionCard):

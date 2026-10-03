@@ -4,7 +4,6 @@ on:
   pull_request:
 permissions:
   contents: read
-  pull-requests: write
 jobs:
   semantic-core:
     runs-on: ubuntu-latest
@@ -17,25 +16,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Unit and real-engine integration tests
-        shell: bash
-        run: |
-          set -o pipefail
-          python -m unittest discover -s Kocto/tests -p 'test_*.py' -v 2>&1 | tee unittest.log
-      - name: Report failed integration test tracebacks
-        if: failure() && github.event_name == 'pull_request' && matrix.python-version == '3.11'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            if (!fs.existsSync('unittest.log')) return;
-            const log = fs.readFileSync('unittest.log', 'utf8');
-            const start = log.indexOf('======================================================================');
-            const failures = (start >= 0 ? log.slice(start) : log).slice(-16000);
-            await github.rest.issues.createComment({
-              owner: context.repo.owner, repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: 'CI integration failure at ' + context.sha + '\n\n```text\n' + failures + '\n```'
-            });
+        run: python -m unittest discover -s Kocto/tests -p 'test_*.py' -v
       - name: Existing game smoke test
         run: python Kocto/tests/smoke_test.py
       - name: Launcher diagnostic entry point
