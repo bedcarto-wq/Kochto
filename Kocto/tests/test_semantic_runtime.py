@@ -20,7 +20,7 @@ class RuntimeTests(unittest.TestCase):
         self.state = NS(week=1, world={}, parser_context={}, week_actions=[], actions_this_week=0,
                         is_game_over=False, groups=self.groups, candidates=[], npcs=[],
                         publications=[NS(id='independent', name='Кочто сегодня')],
-                        player=NS(name='Тест', money=5000, charisma=5, media=5, organization=5),
+                        player=NS(name='Тест', money=5000, charisma=5, media=5, organization=5, persuasion=5, stealth=5, trust=10, role='candidate'),
                         next_archive_no=1, clippings=[], news_feed=[])
         self.legacy_calls = []
         self.logs = []
@@ -35,7 +35,8 @@ class RuntimeTests(unittest.TestCase):
                     resolve_action=lambda *args: self.fail('semantic resolution fell back to legacy'),
                     begin_week_end=self.begin, finish_week=self.finish,
                     plan_lines=lambda state: ['legacy'] * len(state.week_actions))
-        self.engine = NS(systems=sysmod, handle_command=lambda *args: self.legacy_calls.append(args[2]) or {'message':'legacy'},
+        self.engine = NS(systems=sysmod, new_game=lambda *a: (NS(next_election_week=10, world={}, player=NS(**{k: 5 for k in ('charisma','persuasion','media','organization','administration','connections','stealth','security')})), None),
+                         handle_command=lambda *args: self.legacy_calls.append(args[2]) or {'message':'legacy'},
                          _clear_pending=lambda state: None, save_game=lambda *args: None,
                          save_memory=lambda value: self.saved_memory.append(copy.deepcopy(value)))
         self.runtime = SemanticRuntime(self.engine, self.config)
@@ -210,6 +211,74 @@ class RuntimeTests(unittest.TestCase):
         qa = self.accept('встретиться с рабочими против сокращений')
         self.assertEqual(qa['semantic_card']['topic'], 'layoffs')
         self.assertGreater(qa['semantic_audience']['workers'], 0)
+
+    def week(self, chance=100):
+        for qa in self.state.week_actions:
+            qa['semantic_evaluation']['chance'] = chance
+        self.engine.systems.begin_week_end(self.state)
+        self.engine.systems.finish_week(self.state, [])
+
+    def test_canvassing_and_petition_are_live(self):
+        qa = self.accept('провести поквартирный обход среди рабочих о зарплатах')
+        self.assertEqual((qa['semantic_card']['action_type'], qa['cost_paid']), ('canvassing', 150))
+        qa = self.accept('собрать подписи среди рабочих против сокращений')
+        self.assertEqual(qa['semantic_card']['action_type'], 'petition')
+        self.assertGreater(qa['semantic_audience']['workers'], 0)
+
+    def test_promise_kept_by_matching_deed(self):
+        self.accept('пообещать рабочим бороться против сокращений')
+        self.week()
+        self.assertEqual(self.state.world['semantic_promises'][0]['status'], 'active')
+        trust = self.state.player.trust
+        self.accept('собрать подписи среди рабочих против сокращений')
+        self.week()
+        self.assertEqual(self.state.world['semantic_promises'][0]['status'], 'kept')
+        self.assertEqual(self.state.player.trust, trust + 2)
+        self.assertTrue(any('выполнено' in line for line in self.logs))
+
+    def test_promise_broken_by_opposite_stance_once(self):
+        self.accept('пообещать рабочим бороться против сокращений')
+        self.week()
+        trust = self.state.player.trust
+        self.accept('встретиться с рабочими за сокращения')
+        self.week()
+        self.assertEqual(self.state.world['semantic_promises'][0]['status'], 'broken')
+        self.assertEqual(self.state.player.trust, trust - 3)
+        self.week()
+        self.assertEqual(self.state.player.trust, trust - 3)
+
+    def test_promise_expires(self):
+        self.accept('пообещать рабочим бороться за зарплаты')
+        for _ in range(9):
+            self.week()
+        self.assertEqual(self.state.world['semantic_promises'][0]['status'], 'broken')
+
+    def test_goal_reported_once(self):
+        self.state.week = 96
+        self.week()
+        self.week()
+        self.assertEqual(sum('не достигнута' in line for line in self.logs), 1)
+        self.state.player.role = 'mayor'
+        self.week()
+        self.assertTrue(any('Цель достигнута' in line for line in self.logs))
+
+    def card(self, phrase):
+        self.say(phrase)
+        from semantic_actions import ActionCard
+        return ActionCard.from_dict(self.state.parser_context[PENDING]['card'])
+
+    def test_skill_pool_controls_chance(self):
+        low = self.runtime.evaluate(self.state, self.card('встретиться с рабочими о работе'))[0].chance
+        self.state.world['skills'] = {'charm': 90, 'eloquence': 0, 'cunning': 0}
+        high = self.runtime.evaluate(self.state, self.card('встретиться с рабочими о работе'))[0].chance
+        self.assertGreater(high, low)
+
+    def test_new_game_hook_sets_calendar_and_skills(self):
+        self.runtime.allocation = {'charm': 0, 'eloquence': 60, 'cunning': 30}
+        state, _ = self.engine.new_game()
+        self.assertEqual(state.next_election_week, 24)
+        self.assertEqual(state.world['skills']['eloquence'], 60)
+        self.assertEqual((state.player.charisma, state.player.persuasion, state.player.stealth), (0, 10, 5))
 
     def test_service_commands_remain_available(self):
         self.assertEqual(self.say('город'), 'legacy')

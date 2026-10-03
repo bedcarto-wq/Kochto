@@ -47,6 +47,8 @@ class CampaignSession:
         return state, rng, note
 
     def save_game(self, state, rng: random.Random):
+        # The legacy engine calls save after many commands and on close.
+        # The new contract writes only the initial state or a completed week.
         if state.week == self.saved_week:
             return
         if state.week_actions or state.actions_this_week:
@@ -273,13 +275,20 @@ def run() -> int:
             mode, slot_id = (select_tk if use_tk else select_console)(store, validate)
         if mode == 'quit':
             return 0
+        allocation = None
+        if mode == 'new':
+            import skills
+            gui = '--console' not in remaining and engine.ui.tk_available()
+            allocation = skills.ask_tk() if gui else skills.ask_console()
+            if allocation is None:
+                return 0
         session = CampaignSession(engine, store, slot_id)
         original_args = sys.argv[:]
         session.install()
         semantic = None
         try:
             from semantic_runtime import SemanticRuntime
-            semantic = SemanticRuntime.from_file(engine, engine.DATA_DIR / 'world' / 'semantic.json')
+            semantic = SemanticRuntime.from_file(engine, engine.DATA_DIR / 'world' / 'semantic.json', allocation)
             semantic.install()
             sys.argv = [original_args[0]] + remaining
             return engine.run()

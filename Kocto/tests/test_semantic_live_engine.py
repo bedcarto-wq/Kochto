@@ -34,8 +34,9 @@ class LiveEngineTests(unittest.TestCase):
         self.runtime.install()
         self.state, self.rng = main.new_game(data, 777, 'Смысловой тест', 35)
         self.state.player.money = 5000
+        self.assertEqual(self.state.next_election_week, 24)
         for group in self.state.groups:
-            group.mood = 70
+            group.mood = 70  # no unrelated pressure event can mask this test
         main.save_game(self.state, self.rng)
         self.path = self.store._path(self.session.slot_id)
         self.initial = self.path.read_bytes()
@@ -125,6 +126,21 @@ class LiveEngineTests(unittest.TestCase):
         self.state, self.rng, _ = self.session.load_game()
         second = self.accepted('встретиться с рабочими о работе')['chance']
         self.assertLess(second, first)
+
+    def test_promise_and_petition_on_real_engine(self):
+        self.accepted('пообещать рабочим бороться против сокращений')['semantic_evaluation']['chance'] = 100
+        self.complete()
+        self.assertEqual(self.state.world['semantic_promises'][0]['status'], 'active')
+        self.accepted('собрать подписи среди рабочих против сокращений')['semantic_evaluation']['chance'] = 100
+        self.complete()
+        self.assertEqual(self.state.world['semantic_promises'][0]['status'], 'kept')
+        loaded, _, _ = self.session.load_game()
+        self.assertEqual(loaded.world['semantic_promises'], self.state.world['semantic_promises'])
+
+    def test_skills_on_real_player(self):
+        import skills
+        skills.apply(self.state, {'charm': 60, 'eloquence': 30, 'cunning': 0})
+        self.assertEqual((self.state.player.charisma, self.state.player.stealth), (10, 0))
 
     def test_negation_does_not_learn_or_spend(self):
         self.accepted('встретиться с рабочими о работе')
