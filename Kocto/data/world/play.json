@@ -1,0 +1,83 @@
+{
+ "tutorial_steps": [
+  {
+   "check": "command",
+   "commands": [
+    "досье"
+   ],
+   "text": "узнай избирателей — напиши «досье рабочие»."
+  },
+  {
+   "check": "pending",
+   "text": "опиши действие своими словами: «встретиться с рабочими о работе». Игра покажет карточку «Понял как»."
+  },
+  {
+   "check": "queued",
+   "text": "проверь карточку и напиши «подтвердить действие». До подтверждения ничего не тратится."
+  },
+  {
+   "check": "command",
+   "commands": [
+    "ситуации",
+    "советник"
+   ],
+   "text": "посмотри, что происходит в городе: «ситуации» или «советник»."
+  },
+  {
+   "check": "history",
+   "text": "заверши неделю и разбери результаты: увидишь бросок, шанс и причины."
+  },
+  {
+   "check": "promise",
+   "text": "дай обещание: «пообещать рабочим бороться против сокращений» и подтверди. Выполни его делом за 8 недель."
+  },
+  {
+   "check": "command",
+   "commands": [
+    "улики",
+    "рейтинги"
+   ],
+   "text": "узнай о рисках: «улики» (грязные дела) или «рейтинги» (соперники)."
+  }
+ ],
+ "tutorial_done": "Обучение пройдено! Подсказки выключены. Повторить: «обучение заново».",
+ "dirty": {
+  "types": [
+   "meeting",
+   "canvassing",
+   "petition",
+   "volunteer_work",
+   "interview"
+  ],
+  "extra_cost": 300,
+  "chance_factor": 1.15,
+  "effect_factor": 1.5,
+  "trace": {
+   "public": 0.5,
+   "secret": 0.25,
+   "failure_bonus": 0.25
+  },
+  "weekly_discovery": 0.3,
+  "max_discovery": 0.8,
+  "fade": 0.85,
+  "fade_below": 0.1,
+  "cleanup": {
+   "cost": 400,
+   "reduce": 0.3
+  },
+  "scandal": {
+   "trust": -6,
+   "target_mood": -8,
+   "all_mood": -2,
+   "evidence": 10,
+   "investigation": 10,
+   "rival_popularity": 3
+  }
+ },
+ "rival_rating": {
+  "exploit": 2,
+  "debate_won": 1,
+  "debate_lost": -2,
+  "support_share": 0.02
+ }
+}

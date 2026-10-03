@@ -1,0 +1,23 @@
+name: Game regression tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  semantic-core:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unit and real-engine integration tests
+        run: python -m unittest discover -s Kocto/tests -p 'test_*.py' -v
+      - name: Existing game smoke test
+        run: python Kocto/tests/smoke_test.py
+      - name: Launcher diagnostic entry point
+        run: python Kocto/campaign_launcher.py --selftest

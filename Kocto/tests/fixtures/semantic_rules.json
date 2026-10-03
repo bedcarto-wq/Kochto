@@ -1,0 +1,14 @@
+{
+  "min_chance": 15,
+  "max_chance": 90,
+  "topic_low": 0.6,
+  "topic_high": 1.4,
+  "repeat_decay": 0.7,
+  "max_creativity_chance": 20,
+  "max_creativity_effect": 1.5,
+  "field_bonus": 1,
+  "fact_bonus": 4,
+  "chain_bonus": 3,
+  "novelty_bonus": 2,
+  "fit_bonus": 3
+}

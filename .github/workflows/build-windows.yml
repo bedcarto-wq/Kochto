@@ -11,7 +11,7 @@ on:
   release:
     types: [published]
   push:
-    branches: [main]
+    branches: [main, feature/semantic-action-core]
 
 permissions:
   contents: write
@@ -21,29 +21,32 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Тесты
         working-directory: Kocto
         env:
           PYTHONUTF8: "1"
         run: |
-          python main.py --selftest
+          python campaign_launcher.py --selftest
+          python -m unittest discover -s tests -p 'test_*.py' -v
           python tests/smoke_test.py
-
       - name: PyInstaller (Python и tkinter внутри сборки)
         working-directory: Kocto
         run: |
           python -m pip install --upgrade pip pyinstaller
           pyinstaller --noconfirm --clean --onedir --windowed --name Kochto `
             --hidden-import tkinter --hidden-import tkinter.messagebox `
+            --hidden-import tkinter.ttk `
             --hidden-import nn_rivals --hidden-import nn_recognizer `
             --hidden-import nn_analyzer --hidden-import nn_writer `
-            main.py
-
+            --hidden-import semantic_runtime --hidden-import semantic_actions `
+            --hidden-import semantic_parser --hidden-import skills `
+            --hidden-import dossiers --hidden-import campaign_world `
+            --hidden-import campaign_play --hidden-import campaign_chains `
+            --hidden-import ui_layout `
+            campaign_launcher.py
       - name: Данные рядом с exe
         shell: pwsh
         working-directory: Kocto
@@ -53,7 +56,21 @@ jobs:
           Remove-Item -Force dist/Kochto/data/nn/memory/constructions.json -ErrorAction SilentlyContinue
           Remove-Item -Force dist/Kochto/data/laws/custom_laws.json -ErrorAction SilentlyContinue
           Copy-Item "КАК_ИГРАТЬ.txt" dist/Kochto/
-
+          Copy-Item "СОХРАНЕНИЯ.md" dist/Kochto/
+          Copy-Item "СМЫСЛОВЫЕ_ДЕЙСТВИЯ.md" dist/Kochto/ -ErrorAction SilentlyContinue
+          Copy-Item "BALANCE.md" dist/Kochto/ -ErrorAction SilentlyContinue
+      - name: Проверка состава сборки
+        shell: pwsh
+        working-directory: Kocto/dist/Kochto
+        run: |
+          $exe = Get-Item .\Kochto.exe
+          $files = Get-ChildItem -Recurse -File
+          $mb = [math]::Round(($files | Measure-Object Length -Sum).Sum / 1MB, 1)
+          Write-Host "Kochto.exe: $([math]::Round($exe.Length / 1KB)) KB; files: $($files.Count); total: $mb MB"
+          if ($exe.Length -lt 500KB) { Write-Error "exe подозрительно мал"; exit 1 }
+          if (-not ($files | Where-Object Name -like 'python3*.dll')) { Write-Error "нет python DLL"; exit 1 }
+          if (-not ($files | Where-Object Name -like 'tcl*.dll')) { Write-Error "нет tcl/tk"; exit 1 }
+          if (-not (Test-Path .\data\world\chains.json)) { Write-Error "нет chains.json"; exit 1 }
       - name: Проверка exe (самотест без Python в PATH)
         shell: pwsh
         working-directory: Kocto/dist/Kochto
@@ -61,17 +78,14 @@ jobs:
           $env:PATH = "C:\Windows\System32;C:\Windows"
           $p = Start-Process -FilePath ".\Kochto.exe" -ArgumentList "--selftest" -Wait -PassThru
           if ($p.ExitCode -ne 0) { Write-Error "Kochto.exe --selftest вернул $($p.ExitCode)"; exit 1 }
-
       - name: Архив
         shell: pwsh
         working-directory: Kocto/dist
         run: Compress-Archive -Path Kochto -DestinationPath Kochto-windows.zip
-
       - uses: actions/upload-artifact@v4
         with:
           name: Kochto-windows
           path: Kocto/dist/Kochto-windows.zip
-
       - name: Прикрепить exe к релизу
         if: github.event_name == 'release' || inputs.tag != ''
         uses: softprops/action-gh-release@v2

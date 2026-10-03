@@ -1,0 +1,24 @@
+{
+ "dossiers": {
+  "workers": {"summary": "Держатся за рабочие места и зарплату, не доверяют обещаниям «сверху».",
+   "fears": [{"topic": "wages", "stance": "against", "factor": 0.8, "text": "боятся урезания зарплат"}],
+   "red_lines": [{"topic": "layoffs", "stance": "for", "text": "поддержка сокращений"}]},
+  "youth": {"summary": "Ищут работу и связь, быстро теряют интерес к пустым словам.",
+   "fears": [{"topic": "education", "stance": "against", "factor": 0.85, "text": "боятся урезания образования"}],
+   "red_lines": [{"topic": "internet", "stance": "against", "text": "ограничение интернета"}]},
+  "elders": {"summary": "Главное — медицина, тарифы и стабильность.",
+   "fears": [{"topic": "transport", "stance": "against", "factor": 0.85, "text": "боятся отмены автобусов"}],
+   "red_lines": [{"topic": "healthcare", "stance": "against", "text": "сокращение медицины"}]},
+  "business": {"summary": "Считают деньги: налоги, проверки, предсказуемые правила.",
+   "fears": [{"topic": "wages", "stance": "for", "factor": 0.85, "text": "боятся обязательного роста зарплат"}],
+   "red_lines": [{"topic": "taxes", "stance": "for", "text": "повышение налогов"}]},
+  "teachers": {"summary": "Школы, зарплаты и уважение к профессии.",
+   "fears": [{"topic": "layoffs", "stance": "for", "factor": 0.8, "text": "боятся сокращений в школах"}],
+   "red_lines": [{"topic": "education", "stance": "against", "text": "урезание образования"}]},
+  "doctors": {"summary": "Перегружены; ценят тех, кто помогает больницам делом.",
+   "fears": [{"topic": "layoffs", "stance": "for", "factor": 0.8, "text": "боятся сокращения персонала"}],
+   "red_lines": [{"topic": "healthcare", "stance": "against", "text": "сокращение медицины"}]}
+ },
+ "press": {"publication": "opposition", "red_line_chance": 0.5,
+  "red_line": {"group_mood": -5, "trust": -2}, "broken_promise": true}
+}
