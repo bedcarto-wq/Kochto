@@ -3,9 +3,9 @@ chcp 65001 >nul
 cd /d "%~dp0"
 where py >nul 2>nul
 if %errorlevel%==0 (
-  py -3 main.py --console
+  py -3 campaign_launcher.py --console %*
 ) else (
-  python main.py --console
+  python campaign_launcher.py --console %*
 )
 if errorlevel 1 (
   echo.
