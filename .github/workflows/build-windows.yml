@@ -43,7 +43,7 @@ jobs:
             --hidden-import nn_analyzer --hidden-import nn_writer `
             --hidden-import semantic_runtime --hidden-import semantic_actions `
             --hidden-import semantic_parser --hidden-import skills `
-            --hidden-import dossiers `
+            --hidden-import dossiers --hidden-import campaign_world `
             campaign_launcher.py
       - name: Данные рядом с exe
         shell: pwsh

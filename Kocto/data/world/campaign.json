@@ -1,0 +1,37 @@
+{
+ "situation_chance": 0.35,
+ "situation_effect_bonus": 1.15,
+ "situations": [
+  {"id": "plant_strike", "title": "Забастовка на заводе", "text": "Рабочие остановили цеха из-за планов сокращений.", "topic": "layoffs", "groups": ["workers"], "advice": "встретиться с рабочими против сокращений", "event": "strike", "publication": "independent", "weeks": 3},
+  {"id": "hospital_queues", "title": "Очереди в больнице", "text": "Запись к врачу — на месяц вперёд, пенсионеры жалуются.", "topic": "healthcare", "groups": ["doctors", "elders"], "advice": "встретиться с врачами о медицине", "event": null, "publication": "independent", "weeks": 3},
+  {"id": "tariff_hike", "title": "Рост тарифов ЖКХ", "text": "Квитанции выросли на четверть.", "topic": "utilities", "groups": ["elders", "workers"], "advice": "встретиться с пенсионерами о жкх", "event": null, "publication": "opposition", "weeks": 3},
+  {"id": "bus_cuts", "title": "Отмена автобусных маршрутов", "text": "Пенсионеры вышли на протест против отмены маршрутов.", "topic": "transport", "groups": ["elders"], "advice": "встретиться с пенсионерами о транспорте", "event": "protest", "publication": "independent", "weeks": 3},
+  {"id": "school_repair", "title": "Школа без ремонта", "text": "В школе №2 протекла крыша, учителя ведут уроки в спортзале.", "topic": "education", "groups": ["teachers", "youth"], "advice": "встретиться с учителями об образовании", "event": null, "publication": "independent", "weeks": 3},
+  {"id": "internet_outage", "title": "Город без интернета", "text": "Провайдер третий день не может восстановить связь.", "topic": "internet", "groups": ["youth", "business"], "advice": "встретиться с молодежью об интернете", "event": null, "publication": "independent", "weeks": 3},
+  {"id": "tax_raids", "title": "Налоговые проверки", "text": "Малый бизнес жалуется на внезапные проверки.", "topic": "taxes", "groups": ["business"], "advice": "встретиться с предпринимателями о налогах", "event": null, "publication": "independent", "weeks": 3},
+  {"id": "river_spill", "title": "Сброс в реку", "text": "По реке плывёт масляное пятно, студенты вышли на протест.", "topic": "ecology", "groups": ["youth", "elders"], "advice": "встретиться с молодежью об экологии", "event": "protest", "publication": "independent", "weeks": 3},
+  {"id": "housing_queue", "title": "Очередь на жильё", "text": "Молодые семьи ждут квартиры по десять лет.", "topic": "housing", "groups": ["youth"], "advice": "встретиться с молодежью о жилье", "event": null, "publication": "independent", "weeks": 3},
+  {"id": "wage_delay", "title": "Задержка зарплат", "text": "Учителям и рабочим второй месяц не платят, у мэрии протест.", "topic": "wages", "groups": ["workers", "teachers"], "advice": "встретиться с рабочими о зарплатах", "event": "protest", "publication": "opposition", "weeks": 3},
+  {"id": "job_fair", "title": "Ярмарка вакансий", "text": "В ДК проходит ярмарка вакансий для выпускников.", "topic": "jobs", "groups": ["youth", "business"], "advice": "встретиться с молодежью о работе", "event": null, "publication": "official", "weeks": 2},
+  {"id": "clinic_layoffs", "title": "Сокращения в поликлинике", "text": "Врачи протестуют против сокращения ставок.", "topic": "layoffs", "groups": ["doctors"], "advice": "встретиться с врачами против сокращений", "event": "protest", "publication": "independent", "weeks": 3}
+ ],
+ "rivals": {
+  "lozhkin": {"publication": "official", "exploit_mood": -2,
+   "stances": {"taxes": "against", "layoffs": "for", "wages": "against", "jobs": "for"},
+   "lines": {"for": "Городу нужен порядок и экономия, а не обещания", "against": "Нельзя душить тех, кто кормит бюджет"}},
+  "voronina": {"publication": "independent", "exploit_mood": -2,
+   "stances": {"healthcare": "for", "education": "for", "ecology": "for", "layoffs": "against", "housing": "for"},
+   "lines": {"for": "Люди важнее сметы", "against": "Сокращать людей — ленивый путь"}}
+ },
+ "passivity": {"grace_weeks": 2, "group_mood": -1},
+ "tutorial": [
+  "Обучение (шаг за шагом):",
+  "1. «досье» — список групп; «досье рабочие» — их темы, опасения и красные линии.",
+  "2. Напиши действие своими словами: «встретиться с рабочими о работе в цехе». Игра покажет карточку: кто, о чём, как, где, шанс и причины.",
+  "3. «исправить …» меняет карточку, «подтвердить действие» ставит её в план, «отменить карточку» — отмена. Игра запоминает только подтверждённые фразы.",
+  "4. До 3 действий в неделю; потом заверши неделю. Пустые недели подряд снижают настроение всех групп.",
+  "5. «ситуации» — что сейчас в городе: действия на горячую тему сильнее, а на забастовку/протест можно прийти.",
+  "6. Обещания надо выполнять за 8 недель; пресса и соперники (Ложкин, Воронина) реагируют на публичные слова.",
+  "7. «советник» — подсказки вне игрового мира. Цель: стать мэром к 96-й неделе (выборы на 24-й и 72-й)."
+ ]
+}
