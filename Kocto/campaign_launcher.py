@@ -47,8 +47,6 @@ class CampaignSession:
         return state, rng, note
 
     def save_game(self, state, rng: random.Random):
-        # The legacy engine calls save after many commands and on close.
-        # The new contract writes only the initial state or a completed week.
         if state.week == self.saved_week:
             return
         if state.week_actions or state.actions_this_week:
@@ -68,12 +66,13 @@ class CampaignSession:
     def install(self):
         if self.original:
             raise RuntimeError('Campaign session is already installed')
+        path = self.store._path(self.slot_id)
         for key in ('load_game', 'save_game', 'MEMORY_FILE', 'SAVE_FILE'):
             self.original[key] = getattr(self.engine, key)
         self.engine.load_game = self.load_game
         self.engine.save_game = self.save_game
         self.engine.MEMORY_FILE = self.store.root / (self.slot_id + '.memory.json')
-        self.engine.SAVE_FILE = self.store._path(self.slot_id)
+        self.engine.SAVE_FILE = path
 
     def uninstall(self):
         for key, value in self.original.items():
@@ -200,7 +199,7 @@ def select_tk(store: SaveStore, validate=None):
                 raise SaveError('Нет активной кампании. Начни новую.')
             slot_id = _loadable(store, info, validate)
             finish('load', slot_id)
-        except (SaveError, OSError) as exc:
+        except (SaveError, OSError, ValueError) as exc:
             messagebox.showerror('Не удалось загрузить', str(exc), parent=root)
 
     def delete():
@@ -209,7 +208,7 @@ def select_tk(store: SaveStore, validate=None):
             if messagebox.askyesno('Удаление кампании', f'Удалить «{info.name}» и её резервную копию? Это нельзя отменить.', parent=root):
                 store.delete(info.slot_id, confirmed=True)
                 refresh()
-        except (SaveError, OSError) as exc:
+        except (SaveError, OSError, ValueError) as exc:
             messagebox.showerror('Сохранения', str(exc), parent=root)
 
     def recover():
@@ -221,7 +220,7 @@ def select_tk(store: SaveStore, validate=None):
             if messagebox.askyesno('Восстановление', f'Вернуть «{info.name}» к неделе {previous["week"]}? Текущее состояние будет заменено.', parent=root):
                 store.restore(info.slot_id)
                 refresh()
-        except (SaveError, OSError) as exc:
+        except (SaveError, OSError, ValueError) as exc:
             messagebox.showerror('Сохранения', str(exc), parent=root)
 
     buttons = ttk.Frame(root)
@@ -277,13 +276,19 @@ def run() -> int:
         session = CampaignSession(engine, store, slot_id)
         original_args = sys.argv[:]
         session.install()
+        semantic = None
         try:
+            from semantic_runtime import SemanticRuntime
+            semantic = SemanticRuntime.from_file(engine, engine.DATA_DIR / 'world' / 'semantic.json')
+            semantic.install()
             sys.argv = [original_args[0]] + remaining
             return engine.run()
         finally:
             sys.argv = original_args
+            if semantic is not None:
+                semantic.uninstall()
             session.uninstall()
-    except (SaveError, OSError) as exc:
+    except (SaveError, OSError, ValueError) as exc:
         engine._fatal('Не удалось открыть кампанию: ' + str(exc))
         if not engine.models.frozen_build():
             print(str(exc))
