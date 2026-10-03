@@ -287,15 +287,25 @@ def run() -> int:
         session.install()
         semantic = None
         try:
-            from campaign_play import PlayRuntime
-            semantic = PlayRuntime.from_file(engine, engine.DATA_DIR / 'world' / 'semantic.json', allocation)
+            from campaign_chains import ChainRuntime
+            semantic = ChainRuntime.from_file(engine, engine.DATA_DIR / 'world' / 'semantic.json', allocation)
             semantic.install()
+            try:
+                import ui_layout
+                ui_layout.install(engine.ui, engine.SAVE_DIR / 'layout.json')
+            except Exception:  # layout is cosmetic; never block the game
+                pass
             sys.argv = [original_args[0]] + remaining
             return engine.run()
         finally:
             sys.argv = original_args
             if semantic is not None:
                 semantic.uninstall()
+            try:
+                import ui_layout
+                ui_layout.uninstall(engine.ui)
+            except Exception:
+                pass
             session.uninstall()
     except (SaveError, OSError, ValueError) as exc:
         engine._fatal('Не удалось открыть кампанию: ' + str(exc))
