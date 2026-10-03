@@ -44,6 +44,7 @@ jobs:
             --hidden-import semantic_runtime --hidden-import semantic_actions `
             --hidden-import semantic_parser --hidden-import skills `
             --hidden-import dossiers --hidden-import campaign_world `
+            --hidden-import campaign_play `
             campaign_launcher.py
       - name: Данные рядом с exe
         shell: pwsh

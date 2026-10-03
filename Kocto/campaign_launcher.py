@@ -287,8 +287,8 @@ def run() -> int:
         session.install()
         semantic = None
         try:
-            from campaign_world import WorldRuntime
-            semantic = WorldRuntime.from_file(engine, engine.DATA_DIR / 'world' / 'semantic.json', allocation)
+            from campaign_play import PlayRuntime
+            semantic = PlayRuntime.from_file(engine, engine.DATA_DIR / 'world' / 'semantic.json', allocation)
             semantic.install()
             sys.argv = [original_args[0]] + remaining
             return engine.run()
