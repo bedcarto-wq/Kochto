@@ -10,7 +10,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from . import engine as E
-from .session import SLOT_RU, Session
+from .session import MODES, SLOT_RU, Session
 
 SAVE_DIR = Path(__file__).resolve().parent.parent / "gorod_saves"
 EXAMPLES = ("Примеры: «встретиться с пенсионерами», «пообещать заморозку тарифов за 4 недели», "
@@ -117,21 +117,40 @@ class App(tk.Tk):
         tabs.pack(fill="both", expand=True)
         self.press = tk.Text(tabs, wrap="word", font=("Georgia", 11))
         self.log = tk.Text(tabs, wrap="word")
+        self.chart = tk.Canvas(tabs, background="white")
         tabs.add(self.press, text="Газеты")
+        tabs.add(self.chart, text="Выборы")
         tabs.add(self.log, text="Журнал хода")
+        self.tabs = tabs
+        self.chart.bind("<Configure>", lambda e: self.draw_chart())
+        self.last_chart = None
         self.press.tag_configure("paper", font=("Georgia", 9, "italic"))
         self.press.tag_configure("head", font=("Georgia", 13, "bold"))
 
         bottom = ttk.Frame(self)
         bottom.pack(fill="x", padx=8, pady=6)
+        modes = ttk.Frame(bottom)
+        modes.pack(fill="x")
+        ttk.Label(modes, text="Ввод:").pack(side="left")
+        self.mode = tk.StringVar(value="text")
+        for key, label in MODES.items():
+            ttk.Radiobutton(modes, text=label, value=key, variable=self.mode,
+                            command=self.switch_mode).pack(side="left", padx=4)
+        ttk.Button(modes, text="Выгрузить выученные фразы", command=self.export).pack(side="right")
         ttk.Label(bottom, text=EXAMPLES, foreground="#666").pack(anchor="w")
-        row = ttk.Frame(bottom)
-        row.pack(fill="x", pady=2)
-        self.entry = ttk.Entry(row, font=("Arial", 12))
+        self.text_row = ttk.Frame(bottom)
+        self.text_row.pack(fill="x", pady=2)
+        self.entry = ttk.Entry(self.text_row, font=("Arial", 12))
         self.entry.pack(side="left", fill="x", expand=True)
         self.entry.bind("<Return>", lambda e: self.understand())
-        ttk.Button(row, text="Понять", command=self.understand).pack(side="left", padx=4)
-        ttk.Button(row, text="Завершить неделю", command=self.end_week).pack(side="left", padx=4)
+        ttk.Button(self.text_row, text="Понять", command=self.understand).pack(side="left", padx=4)
+        self.card_row = ttk.Frame(bottom)
+        ttk.Label(self.card_row, text="Действие:").pack(side="left")
+        self.card_action = ttk.Combobox(self.card_row, state="readonly", width=30,
+                                        values=[n for _, n in self.session.actions()])
+        self.card_action.pack(side="left", padx=4)
+        self.card_action.bind("<<ComboboxSelected>>", lambda e: self.manual())
+        ttk.Button(bottom, text="Завершить неделю", command=self.end_week).pack(anchor="e")
         self.preview = ttk.LabelFrame(bottom, text="Понято как")
         self.preview.pack(fill="x", pady=4)
         self.summary = ttk.Label(self.preview, wraplength=1100, justify="left")
@@ -160,6 +179,7 @@ class App(tk.Tk):
             return
         self.press.delete("1.0", "end")
         self.log.delete("1.0", "end")
+        self.last_chart = None
         self._log("Кампания началась. Выборы — на неделе " + str(self.session.state.next_election_week) + ".")
         self.cancel()
         self.refresh()
@@ -185,6 +205,7 @@ class App(tk.Tk):
             messagebox.showerror("Загрузка", str(exc))
             return
         self._log("Загружено: " + path)
+        self.last_chart = None
         self.cancel()
         self.refresh()
 
@@ -194,10 +215,70 @@ class App(tk.Tk):
         text = self.entry.get().strip()
         if not text:
             return
+        if self.mode.get() == "improver":
+            text = self.choose_variant(text)
+            if text is None:
+                return
         try:
             self._show(self.session.understand(text))
         except E.RuleError as exc:
             messagebox.showwarning("Ход", str(exc))
+
+    def choose_variant(self, text):
+        variants = self.session.suggest(text)
+        dlg = tk.Toplevel(self)
+        dlg.title("Улучшатель текста")
+        choice = tk.IntVar(value=0 if variants else -1)
+        ttk.Label(dlg, text="Как отправить в игру?", font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=6)
+        ttk.Radiobutton(dlg, text="Свой текст: " + text, value=-1, variable=choice).pack(anchor="w", padx=10)
+        for i, v in enumerate(variants):
+            mark = "" if v["complete"] else "  (не хватает данных — уточните после)"
+            ttk.Radiobutton(dlg, text=v["text"] + mark + "\n    → " + v["summary"], value=i,
+                            variable=choice).pack(anchor="w", padx=10, pady=2)
+        if not variants:
+            ttk.Label(dlg, text="Улучшить не получилось — игра не поняла фразу.").pack(anchor="w", padx=10)
+        result = [None]
+
+        def ok():
+            i = choice.get()
+            result[0] = text if i < 0 else variants[i]["text"]
+            dlg.destroy()
+        b = ttk.Frame(dlg)
+        b.pack(pady=8)
+        ttk.Button(b, text="Отправить", command=ok).pack(side="left", padx=4)
+        ttk.Button(b, text="Отмена", command=dlg.destroy).pack(side="left", padx=4)
+        dlg.grab_set()
+        self.wait_window(dlg)
+        if result[0] and result[0] != text:
+            self.entry.delete(0, "end")
+            self.entry.insert(0, result[0])
+        return result[0]
+
+    def switch_mode(self):
+        self.session.set_mode(self.mode.get())
+        self.cancel()
+        if self.mode.get() == "card":
+            self.text_row.pack_forget()
+            self.card_row.pack(fill="x", pady=2)
+        else:
+            self.card_row.pack_forget()
+            self.text_row.pack(fill="x", pady=2)
+
+    def manual(self):
+        if self.session.state is None or self.session.over:
+            return
+        ids = [k for k, _ in self.session.actions()]
+        self._show(self.session.manual(ids[self.card_action.current()]))
+
+    def export(self):
+        if self.session.state is None:
+            return
+        SAVE_DIR.mkdir(exist_ok=True)
+        path = filedialog.asksaveasfilename(initialdir=SAVE_DIR, initialfile="learned_phrases.json",
+                                            defaultextension=".json")
+        if path:
+            n = self.session.export_learned(Path(path))
+            self._log("Выгружено фраз: " + str(n) + " → " + path)
 
     def _show(self, view: dict):
         for w in self.slots.winfo_children():
@@ -209,6 +290,21 @@ class App(tk.Tk):
         if view.get("ready"):
             lines.append("Шанс " + str(view["chance"]) + "% · стоимость " + str(view["cost"]))
         self.summary.configure(text="\n".join(lines))
+        if view.get("ok"):
+            names = [n for _, n in self.session.actions()]
+            ids = [k for k, _ in self.session.actions()]
+            ttk.Label(self.slots, text="действие:").pack(side="left")
+            act = ttk.Combobox(self.slots, state="readonly", values=names, width=26)
+            act.current(ids.index(view["action"]))
+            act.pack(side="left", padx=4)
+            act.bind("<<ComboboxSelected>>", lambda e, b=act: self._show(self.session.set_action(ids[b.current()])))
+            if view["action"] == "promise":
+                ttk.Label(self.slots, text="срок, нед.:").pack(side="left")
+                dl = tk.IntVar(value=view["deadline"] or 4)
+                sp = ttk.Spinbox(self.slots, from_=1, to=self.session.data["actions"]["promise"]["max_deadline"],
+                                 width=4, textvariable=dl,
+                                 command=lambda v=dl: self._show(self.session.set_deadline(int(v.get()))))
+                sp.pack(side="left", padx=4)
         for slot in view.get("missing", []):
             opts = self.session.options(slot)
             ttk.Label(self.slots, text=SLOT_RU[slot] + ":").pack(side="left")
@@ -254,6 +350,9 @@ class App(tk.Tk):
             self.press.insert("1.0", a["lead"] + "\n\n")
             self.press.insert("1.0", a["headline"] + "\n", "head")
             self.press.insert("1.0", a["paper_name"] + " · неделя " + str(rep["week"]) + "\n", "paper")
+        if rep.get("chart"):
+            self.last_chart = rep["chart"]
+            self.tabs.select(self.chart)
         self.refresh()
         if rep["dead"]:
             messagebox.showinfo("Игра окончена", "Кандидат погиб. Город запомнит.")
@@ -261,6 +360,41 @@ class App(tk.Tk):
             e = rep["election"]
             messagebox.showinfo("Выборы", ("Победа" if e["won"] else "Поражение") + ": "
                                 + str(e["player"]) + " против " + str(e["rival"]) + ". Игра продолжается.")
+
+    # ---------- диаграмма выборов ----------
+    def draw_chart(self):
+        c = self.chart
+        c.delete("all")
+        if self.session.state is None:
+            return
+        ch = self.last_chart or self.session.forecast_chart()
+        w = max(c.winfo_width(), 600)
+        y = 14
+        c.create_text(12, y, anchor="w", text=ch["title"], font=("Arial", 14, "bold"))
+        y += 28
+
+        def section(title, rows, colors):
+            nonlocal y
+            c.create_text(12, y, anchor="w", text=title, font=("Arial", 11, "bold"))
+            y += 22
+            for label, values in rows:
+                c.create_text(12, y + 9, anchor="w", text=label[:30], font=("Arial", 10))
+                x0, full = 240, w - 330
+                x = x0
+                for v, col in zip(values, colors):
+                    ln = full * v / 100.0
+                    c.create_rectangle(x, y, x + ln, y + 18, fill=col, outline="")
+                    x += ln
+                c.create_text(x0 + full + 8, y + 9, anchor="w",
+                              text=" / ".join(str(v) + "%" for v in values), font=("Arial", 10))
+                y += 26
+            y += 8
+
+        section("Мэр", [(n, [p]) for n, p in ch["mayor"]], ["#3a7bd5"])
+        section("По группам: " + ch["you"] + " (синий) / " + ch["rival"] + " (серый)",
+                [(n, [p, r]) for n, p, r in ch["groups"]], ["#3a7bd5", "#b0b0b0"])
+        section("Совет: доля голосов", [(n + " — мест " + str(k), [p]) for n, p, k in ch["council"]], ["#e08a1e"])
+        c.create_text(12, y + 6, anchor="nw", text=ch["caption"], width=w - 24, font=("Arial", 10, "italic"))
 
     # ---------- отрисовка ----------
     def _log(self, line: str):
@@ -287,6 +421,7 @@ class App(tk.Tk):
         self.promises.delete(0, "end")
         for p in st["promises"]:
             self.promises.insert("end", p)
+        self.draw_chart()
 
 
 def main():

@@ -94,7 +94,7 @@ def _deadline(data: dict, toks: List[str]) -> int:
     for i, t in enumerate(toks):
         num = int(t) if t.isdigit() else lex["numbers"].get(t)
         nxt = toks[i + 1] if i + 1 < len(toks) else ""
-        if num and nxt.startswith("недел"):
+        if num and nxt.startswith("нед"):
             return int(num)
         if num and any(nxt.startswith(m) for m in lex["month_words"]):
             return int(num) * 4
@@ -103,7 +103,26 @@ def _deadline(data: dict, toks: List[str]) -> int:
     return 0
 
 
-def parse(data: dict, text: str) -> Parse:
+_CACHE: dict = {}
+
+
+def model(data: dict, learned=None):
+    """Базовая модель + фразы кампании (подстройка во время игры). Кэшируется."""
+    base = data.get("_nlu")
+    if base is None or not learned:
+        return base
+    key = (id(base), tuple(tuple(x) for x in learned))
+    if key not in _CACHE:
+        _CACHE.clear()
+        _CACHE[key] = base.extended([tuple(x) for x in learned], int(data["tuning"]["learned_weight"]))
+    return _CACHE[key]
+
+
+def _norm(text: str) -> str:
+    return " ".join(tokens(text))
+
+
+def parse(data: dict, text: str, learned=None) -> Parse:
     toks = tokens(text)
     if not toks:
         return Parse(None, notes=["пустая фраза"])
@@ -116,12 +135,20 @@ def parse(data: dict, text: str) -> Parse:
         if fuzzy:
             notes.append("похоже на опечатку: «" + toks[i] + "» понято как «" + _label(data, kind, eid) + "»")
     acts = _actions(data, toks)
-    probs = data["_nlu"].predict(toks) if "_nlu" in data else None
+    m = model(data, learned)
+    probs = m.predict(toks) if m is not None else None
     source, conf = "словарь", 1.0
-    if len(acts) == 1:
+    remembered = [a for t, a in (learned or []) if _norm(t) == _norm(text)]
+    if remembered:
+        action = remembered[-1]
+        source = "память"
+        acts = [action] + [a for a in acts if a != action]
+        notes.append("эту фразу вы уже уточняли — " + data["actions"][action]["name"])
+    elif len(acts) == 1:
         action = acts[0]
     elif acts:
-        action = max(acts, key=lambda a: (probs or {}).get(a, 0.0)) if probs else acts[0]
+        specific = [a for a in acts if a != "statement"] or acts  # «заявить» — общий глагол, уступает конкретному
+        action = max(specific, key=lambda a: (probs or {}).get(a, 0.0)) if probs else specific[0]
         conf = (probs or {}).get(action, 0.0)
         acts = [action] + [a for a in acts if a != action]
     elif probs and max(probs.values()) >= AI_MIN_CONFIDENCE:

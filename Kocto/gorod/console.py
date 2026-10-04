@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from . import engine as E
-from .session import SLOT_RU, Session
+from .session import MODES, SLOT_RU, Session, ascii_chart
 
 SAVE_DIR = Path(__file__).resolve().parent.parent / "gorod_saves"
 HELP = """Пишите действие обычной фразой, например:
@@ -14,7 +14,11 @@ HELP = """Пишите действие обычной фразой, напри�
   дать интервью «Голосу улицы» против расширения завода
   внести в совет сбор с торговли на ремонт дорог
   нанять охрану · заявить об угрозах
-Команды: статус · обещания · неделя (завершить неделю) · сохранить [имя] · загрузить [имя] · помощь · выход"""
+Команды: статус · обещания · прогноз (диаграмма) · неделя (завершить неделю)
+  режим текст | улучшатель | карточка — как вводить действия
+  карточка — один раз собрать действие вручную · выгрузить фразы — выученные фразы в файл
+  сохранить [имя] · загрузить [имя] · помощь · выход"""
+MODE_CMD = {"текст": "text", "улучшатель": "improver", "карточка": "card"}
 
 
 def ask(prompt: str) -> str:
@@ -67,11 +71,35 @@ def new_game(ses: Session) -> None:
             print("Ошибка: " + str(exc))
 
 
+def improve_text(ses: Session, text: str) -> str:
+    """Улучшатель: показать варианты, игрок выбирает свой текст или вариант."""
+    variants = ses.suggest(text)
+    if not variants:
+        print("  улучшатель не нашёл вариантов — беру ваш текст")
+        return text
+    opts = [(text, "свой текст: " + text)] + [(v["text"], v["text"] + ("" if v["complete"] else " (не хватает деталей)"))
+                                              for v in variants]
+    return choose("Варианты формулировки:", opts) or text
+
+
+def manual_card(ses: Session) -> None:
+    act = choose("Действие:", ses.actions())
+    if act is None:
+        return
+    finish(ses, ses.manual(act))
+
+
 def turn(ses: Session, text: str) -> None:
+    if ses.mode == "improver":
+        text = improve_text(ses, text)
     view = ses.understand(text)
     if not view["ok"]:
-        print("Не понял: " + "; ".join(view["notes"]) + ". «помощь» — примеры.")
+        print("Не понял: " + "; ".join(view["notes"]) + ". «помощь» — примеры, «карточка» — собрать вручную.")
         return
+    finish(ses, view)
+
+
+def finish(ses: Session, view: dict) -> None:
     while view["missing"]:
         slot = view["missing"][0]
         val = choose("Уточните: " + SLOT_RU[slot], ses.options(slot))
@@ -86,7 +114,22 @@ def turn(ses: Session, text: str) -> None:
     for w in view["warnings"]:
         print("  ! " + w)
     print("  шанс " + str(view["chance"]) + "% · стоимость " + str(view["cost"]))
-    if ask("Выполнить? (Enter — да, н — нет): ").lower().startswith("н"):
+    raw = ask("Выполнить? (Enter — да, н — нет, и — исправить действие" + (", с — срок" if view["action"] == "promise" else "")
+              + "): ").lower()
+    if raw.startswith("и"):
+        act = choose("Правильное действие (игра запомнит):", ses.actions())
+        if act is None:
+            ses.cancel()
+            print("Отменено.")
+            return
+        return finish(ses, ses.set_action(act))
+    if raw.startswith("с") and view["action"] == "promise":
+        n = ask("Срок, недель: ")
+        if n.isdigit() and int(n) > 0:
+            return finish(ses, ses.set_deadline(int(n)))
+        print("нужно число недель")
+        return finish(ses, view)
+    if raw.startswith("н"):
         ses.cancel()
         print("Отменено.")
         return
@@ -121,6 +164,8 @@ def main() -> None:
                 continue
             rep = ses.end_week()
             print("\n".join(rep["lines"]))
+            if rep.get("chart"):
+                print("\n".join(ascii_chart(rep["chart"])))
             for a in rep["articles"]:
                 print("\n  " + a["paper_name"] + "\n  " + a["headline"] + "\n  " + a["lead"])
             if rep["dead"]:
@@ -128,6 +173,25 @@ def main() -> None:
                 continue
             print()
             print_status(ses)
+        elif low == "прогноз":
+            print("\n".join(ascii_chart(ses.forecast_chart())))
+        elif low.startswith("режим"):
+            m = MODE_CMD.get(low[5:].strip())
+            if m is None:
+                print("режимы: " + ", ".join(MODE_CMD))
+            else:
+                ses.set_mode(m)
+                print("Режим: " + MODES[m])
+        elif low == "выгрузить фразы":
+            SAVE_DIR.mkdir(exist_ok=True)
+            path = SAVE_DIR / "выученные_фразы.json"
+            print("Выгружено фраз: " + str(ses.export_learned(path)) + " → " + str(path))
+        elif low == "карточка" or (ses.mode == "card" and not ses.over and ses.state.actions_left > 0
+                                   and low not in ("сохранить", "загрузить") and not low.startswith(("сохранить", "загрузить"))):
+            if ses.over or ses.state.actions_left <= 0:
+                print("Сейчас действовать нельзя.")
+            else:
+                manual_card(ses)
         elif low.startswith("сохранить"):
             SAVE_DIR.mkdir(exist_ok=True)
             path = SAVE_DIR / ((cmd[9:].strip() or "slot") + ".json")

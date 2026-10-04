@@ -1,665 +1,1986 @@
 {
- "schema_version": 1,
+ "schema_version": 2,
  "phrases": [
   {
    "text": "встретиться с рабочими",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поговорить с пенсионерами во дворе",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "заглянуть в цех к мужикам",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "наведаться к торговцам на рынок",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пообщаться с бабушками у подъезда",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "провести собрание жильцов",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "сходить на проходную завода к утренней смене",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "посидеть с ветеранами в совете ветеранов",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обойти лавки на рыночной площади",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "устроить чаепитие с пенсионерами",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пожать руки рабочим после смены",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "приехать к фермерам и выслушать их",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "зайти в профком и поговорить с людьми",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "организовать встречу с жителями заречья",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "собрать предпринимателей за круглым столом",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "выслушать жалобы трудящихся",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "провести приём граждан",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "навестить дом престарелых",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "побывать на планёрке у бригадиров",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пройтись по рынку и пообщаться с продавцами",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "лично выйти к людям у проходной",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "посетить клуб ветеранов",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "сходить к лавочникам",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "встреча с бизнесом",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "разговор по душам со сварщиками",
-   "action": "meeting"
+   "action": "meeting",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "заявить, что я против расширения завода",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "выступить в поддержку заморозки тарифов",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "публично осудить сбор с торговли",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "высказаться о ремонте дорог",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "объявить свою позицию по тарифам",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "сказать горожанам, что завод нужно расширять",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "выступить на площади с речью о квартплате",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обратиться к горожанам с позицией по налогу",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "написать открытое письмо о заводе",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "опубликовать пост о тарифах ЖКХ",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "озвучить позицию по сбору с рынка",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "сделать заявление для прессы о заводе",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "высказать мнение о налоге на торговлю",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "произнести речь о коммуналке",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поддержать расширение производства",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "осудить рост квартплаты",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "призвать отменить сбор",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "на митинге сказать, что тарифы надо заморозить",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "записать видеообращение о дорогах",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "выступить против налога",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "публично поддержать рабочих в вопросе завода",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "высказаться против роста тарифов",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "заявить позицию",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обнародовать позицию по расширению цеха",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "выступить с речью",
-   "action": "statement"
+   "action": "statement",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пообещать заморозить тарифы",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "дать слово, что завод расширят",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обещаю отменить сбор с торговли",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "клянусь не допустить расширения завода",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "гарантирую ремонт дорог за месяц",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поклясться снизить квартплату",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обязуюсь заморозить тарифы за три недели",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пообещать пенсионерам заморозку тарифов",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "даю слово отменить налог",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пообещаю добиться расширения завода за пять недель",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "взять обязательство по тарифам",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пообещать до выборов отремонтировать дороги",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поручиться, что сбор не введут",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "дать гарантию по коммуналке",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пообещать рабочим новый цех",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обещать заморозку тарифов к лету",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "зарекаюсь поднимать тарифы",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поклясться на площади, что завод не расширят",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обещание отменить сбор с рынка",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пообещаю за две недели",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "дать честное слово по налогу",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обещаю",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "даю гарантию, что квартплата не вырастет",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пообещать снизить налоги предпринимателям",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "клятвенно пообещать ремонт дорог",
-   "action": "promise"
+   "action": "promise",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "внести в совет заморозку тарифов",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "провести через совет сбор с торговли",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "добиться голосования по заводу",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "подготовить законопроект о тарифах",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "инициировать решение о расширении завода",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "протолкнуть через депутатов налог на торговлю",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "провести решение о ремонте дорог",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "внести проект решения по квартплате",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "заблокировать в совете расширение завода",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "продавить в совете отмену сбора",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поставить на голосование заморозку тарифов",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "добиться принятия решения по тарифам",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "провести постановление о сборе",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "внести поправку о тарифах",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "собрать голоса депутатов за завод",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пролоббировать в совете ремонт дорог",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "добиться отмены сбора через совет",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "провести через сессию решение по заводу",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "предложить совету заморозить тарифы",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "протащить через совет налог",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "сорвать голосование по расширению завода",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "инициатива в совете по коммуналке",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "депутатский запрос о тарифах",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "вынести на сессию вопрос о сборе",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "утвердить в совете заморозку",
-   "action": "initiative"
+   "action": "initiative",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "дать интервью вестнику",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поговорить с журналистом голоса улицы",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "ответить на вопросы корреспондента",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "дать комментарий газете",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "прийти в редакцию вестника",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "интервью для голоса улицы о заводе",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "выступить в прямом эфире газеты",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "дать большое интервью о тарифах",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пообщаться с прессой",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "рассказать журналистам о планах",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "записать подкаст с редакцией",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "дать комментарий оппозиционной газете",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "позвать журналистов на разговор",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "ответить прессе на вопросы о налоге",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "интервью официальной газете",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "разговор с редактором вестника",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "дать эксклюзив голосу улицы",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пресс-подход для журналистов",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "колонка в вестнике",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поговорить с корреспондентом о дорогах",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "встретиться с журналистами",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "ответить газетчикам",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "рассказать прессе о себе",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "дать интервью",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "газетное интервью о коммуналке",
-   "action": "interview"
+   "action": "interview",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "нанять охрану",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "взять телохранителя",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "усилить безопасность штаба",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поставить охрану у дома",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "заключить договор с чоп",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обзавестись охранником",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "позаботиться о своей безопасности",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "нанять крепких ребят для защиты",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "защитить себя и семью",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поставить камеры и охрану",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "усилить защиту",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "нанять частную охрану",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "держать при себе охранника",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "охранять штаб круглосуточно",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "нанять бывших полицейских для охраны",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "укрепить безопасность",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "выставить пост охраны",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "нанять телохранителей на выборы",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "охрана для кандидата",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "найти людей, чтобы прикрывали",
-   "action": "security"
+   "action": "security",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "заявить об угрозах",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "написать заявление в полицию",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "рассказать журналистам, что мне угрожают",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обратиться в полицию из-за шантажа",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "публично рассказать о запугивании",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "предать огласке угрозы",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "заявить, что на меня давят",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "сообщить в прокуратуру об угрозах",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "рассказать горожанам о давлении",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "обнародовать письма с угрозами",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "пожаловаться в полицию",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "вынести угрозы на публику",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "рассказать о шантаже",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "написать в прокуратуру",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "огласить, кто мне угрожает",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "заявить о давлении на штаб",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "сообщить о запугивании сотрудников",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "подать заявление об угрозах",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "поднять шум из-за угроз",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
   },
   {
    "text": "объявить, что меня запугивают",
-   "action": "publicize"
+   "action": "publicize",
+   "split": "train",
+   "source": "base"
+  },
+  {
+   "text": "Я приду к вам в цех и выслушаю каждого",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Хочу лично услышать, что волнует пенсионеров Заречья",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Давайте соберёмся и честно поговорим о ваших проблемах",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Приглашаю предпринимателей за общий стол, обсудим наболевшее",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я готов прийти к проходной в семь утра и ответить на любые вопросы",
+   "action": "meeting",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Буду ездить по дворам и разговаривать с людьми",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Мне важно посмотреть людям в глаза, а не читать отчёты",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Проведу открытую встречу с жителями в доме культуры",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Загляну к торговцам на рынок, послушаю, как им живётся",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Посижу с ветеранами, у них есть что сказать городу",
+   "action": "meeting",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Я выйду к рабочим и поговорю без бумажек",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Нужно встретиться с теми, кого это касается напрямую",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Соберу совет старейшин двора и выслушаю их",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я пойду к людям, а не буду прятаться в кабинете",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Устрою приём граждан в субботу",
+   "action": "meeting",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Поеду к фермерам на ярмарку и пообщаюсь",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Схожу в профсоюз, пусть выскажут претензии в лицо",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Встречусь с бригадирами смен, они знают завод лучше всех",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Обойду лавки и магазины на центральной улице",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Надо поговорить с бабушками у почты, они всё знают",
+   "action": "meeting",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Позову лавочников на чай и разговор",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я хочу услышать жалобы каждого пенсионера лично",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Встану у проходной и буду говорить с каждым",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Проведу собрание с работниками второго цеха",
+   "action": "meeting",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Хочу побывать на рынке и узнать настроение",
+   "action": "meeting",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Я категорически против расширения завода у реки",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Считаю, что тарифы ЖКХ нужно заморозить немедленно",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Сбор с торговли — это удар по малому бизнесу, я против",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Моя позиция проста: городу нужен новый цех",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я поддерживаю заморозку квартплаты для всех",
+   "action": "statement",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Ремонт дорог за счёт торговцев — справедливое решение",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Скажу прямо: расширять завод сейчас нельзя",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Позиция моей команды — тарифы не должны расти",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я выступаю за сбор с крупных торговых сетей",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Нельзя перекладывать ремонт дорог на плечи лавочников",
+   "action": "statement",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Я за развитие производства и новые рабочие места",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Хочу ясно обозначить: я против роста коммунальных платежей",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Позвольте высказаться о заводе: это наш шанс",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Город не может жить с такими тарифами",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Мы должны поддержать завод, а не душить его",
+   "action": "statement",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Я осуждаю идею налога на рынок",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Мое мнение: дороги важнее прибыли торговцев",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Убеждён, что расширение цеха убьёт реку",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Хочу заявить о своей позиции по квартплате",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я не поддерживаю сбор с торговли в нынешнем виде",
+   "action": "statement",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Выскажусь откровенно: тарифная политика провалена",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Расширение производства — это зарплаты для рабочих",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я за то, чтобы рыночный сбор шёл на дороги",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Публично заявляю: заводу нужно расти",
+   "action": "statement",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Вынужден сказать: рост тарифов недопустим",
+   "action": "statement",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Даю вам слово: тарифы будут заморожены",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Обещаю, что завод не расширят, пока я здесь",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Гарантирую ремонт дорог в течение месяца",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Клянусь, сбор с торговли отменят",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я лично обещаю пенсионерам, что квартплата не вырастет",
+   "action": "promise",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Обязуюсь добиться нового цеха за полгода",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Слово даю: никаких новых поборов с рынка",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Обещаю рабочим, что завод будет расширен",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я гарантирую заморозку тарифов до конца года",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Беру на себя обязательство отремонтировать дороги",
+   "action": "promise",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Даю гарантию: торговцев не обложат новым сбором",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Обещаю за три недели решить вопрос с тарифами",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Клянусь перед всеми, что не допущу расширения завода",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я дам городу новый цех, обещаю",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Обязуюсь не поднимать квартплату",
+   "action": "promise",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Через месяц сбор будет отменён, обещаю",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Даю честное слово, что дороги отремонтируют",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Пообещаю вам заморозку тарифов, и выполню",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Ручаюсь, что рынок не тронут",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я обещаю: ни одного рубля сверху за коммуналку",
+   "action": "promise",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Гарантирую рабочие места на новом производстве",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Обещаю бизнесу никаких новых налогов",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Клятвенно заверяю, что завод не будет травить реку",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Даю слово, что за две недели вопрос решится",
+   "action": "promise",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Обещаю добиться отмены сбора",
+   "action": "promise",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "На ближайшей сессии внесу проект решения о заморозке тарифов",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Предложу совету проголосовать за расширение завода",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Подготовлю поправку о рыночном сборе",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Добьюсь голосования по ремонту дорог",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Внесу в совет запрет на расширение цеха",
+   "action": "initiative",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Проведу через депутатов решение по квартплате",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Соберу голоса в совете за отмену сбора",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Инициирую решение о новом производстве",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Поставлю вопрос о тарифах на голосование",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Буду продавливать в совете сбор с торговли",
+   "action": "initiative",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Предложу депутатам заблокировать расширение завода",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Вынесу на сессию проект о дорогах",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Внесу законопроект о заморозке коммунальных платежей",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Через совет добьюсь отмены налога на рынок",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Подам депутатский запрос и проект решения по заводу",
+   "action": "initiative",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Пролоббирую в совете заморозку тарифов",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Сорву голосование по расширению завода",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Проведу постановление о сборе на дороги",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Попрошу председателя совета включить вопрос о тарифах в повестку",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Добьюсь принятия решения о новом цехе",
+   "action": "initiative",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Внесу поправки в бюджет на ремонт дорог",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Предложу совету утвердить мораторий на рост тарифов",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Протащу через сессию решение о рыночном сборе",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Заблокирую в совете повышение квартплаты",
+   "action": "initiative",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Через депутатов остановлю расширение производства",
+   "action": "initiative",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Готов ответить на вопросы редакции «Вестника»",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Расскажу журналистам «Голоса улицы» о своих планах",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Дам большое интервью местной газете",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Приду в редакцию и отвечу на неудобные вопросы",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Хочу объясниться с горожанами через прессу",
+   "action": "interview",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Пусть журналисты спросят меня о заводе",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Согласен на интервью оппозиционной газете",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Позвоню корреспонденту и дам комментарий",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Отвечу прессе по поводу тарифов",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Дам эксклюзивное интервью о своей программе",
+   "action": "interview",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Поговорю с редактором вестника под запись",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Расскажу газетчикам, как будем чинить дороги",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Встречусь с журналистами и отвечу на всё",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Дам комментарий для вечернего выпуска",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Пусть «Голос улицы» задаст мне свои вопросы",
+   "action": "interview",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Выступлю в газете с подробным интервью",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Хочу рассказать прессе правду о сборе",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Дам интервью о том, почему я против завода",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Отвечу на вопросы корреспондента о квартплате",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Согласую интервью с официальной газетой",
+   "action": "interview",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Поговорю с прессой о своей команде",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Через газету объясню свою позицию по рынку",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Дам развёрнутое интервью о будущем города",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Готов к пресс-конференции для журналистов",
+   "action": "interview",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Расскажу в интервью о планах на сто дней",
+   "action": "interview",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Мне нужна охрана, ситуация накаляется",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Найму телохранителя на время кампании",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Штаб нужно охранять круглосуточно",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Позабочусь о безопасности семьи",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Заключу договор с охранной фирмой",
+   "action": "security",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Возьму с собой охрану на встречи",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Поставлю камеры и пост у штаба",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Без охраны я больше никуда не поеду",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Пусть бывшие полицейские прикрывают меня",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Нужно усилить защиту штаба",
+   "action": "security",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Найму пару крепких ребят для безопасности",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Хочу, чтобы у дома дежурил охранник",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Обеспечу охрану для себя и команды",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "После угроз мне нужна личная охрана",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Усилю меры безопасности в штабе",
+   "action": "security",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Закажу охрану в частной фирме",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Поставлю охрану на входе",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Мне нужны телохранители до выборов",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Охрана теперь будет со мной постоянно",
+   "action": "security",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Найму охрану для поездок по городу",
+   "action": "security",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Мне угрожают, и я молчать не буду",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я обращаюсь в полицию: на меня давят",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Хочу, чтобы город знал о шантаже",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Расскажу всем, кто стоит за угрозами",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Заявляю публично о запугивании моей команды",
+   "action": "publicize",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Передам письма с угрозами в прокуратуру",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Пусть все узнают, как меня пытаются запугать",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Я подам заявление об угрозах",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Это давление, и я сделаю его публичным",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Сообщу в полицию о звонках с угрозами",
+   "action": "publicize",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Не позволю себя запугать, всё расскажу журналистам",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Обнародую доказательства давления",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Угрозы моей семье станут достоянием общественности",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Обращусь к прокурору по поводу шантажа",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Требую от полиции разобраться с угрозами",
+   "action": "publicize",
+   "split": "test",
+   "source": "speech"
+  },
+  {
+   "text": "Публично назову тех, кто мне угрожает",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Предам огласке давление на штаб",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Пожалуюсь в прокуратуру на запугивание",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Сделаю заявление о давлении на моих людей",
+   "action": "publicize",
+   "split": "train",
+   "source": "speech"
+  },
+  {
+   "text": "Расскажу горожанам о шантаже",
+   "action": "publicize",
+   "split": "test",
+   "source": "speech"
   }
- ]
+ ],
+ "note": "source=speech — фразы в стиле речей политиков, написаны для игры (не цитаты). split=test не идёт в обучение, только в проверку."
 }

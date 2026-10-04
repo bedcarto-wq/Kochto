@@ -1,7 +1,9 @@
 """ИИ понимания: стеммер + наивный байесовский классификатор + исправление опечаток.
 
 Без внешних библиотек и без готовых весов: модель обучается при загрузке данных на
-размеченных фразах из data/train_phrases.json (детерминированно, за миллисекунды).
+размеченных фразах из data/train_phrases.json (split=train; split=test — только для
+проверки качества), детерминированно, за миллисекунды. Во время игры модель
+дообучается на фразах, которые игрок подтвердил или исправил (State.learned).
 Словарь основ в parser.py остаётся главным источником; классификатор нужен, когда
 игрок пишет своими словами («заглянуть в цех к мужикам»), и чтобы выбрать одно
 действие, если в фразе их несколько.
@@ -58,14 +60,23 @@ class NaiveBayes:
         self.vocab: set = set()
         self.labels: List[str] = []
 
-    def fit(self, samples: List[tuple]) -> "NaiveBayes":
+    def fit(self, samples: List[tuple], weight: int = 1) -> "NaiveBayes":
         for text, label in samples:
             feats = features(tokens(text))
-            self.counts.setdefault(label, Counter()).update(feats)
+            c = self.counts.setdefault(label, Counter())
+            for _ in range(weight):
+                c.update(feats)
             self.vocab.update(feats)
         self.labels = sorted(self.counts)
         self.totals = {lab: sum(c.values()) for lab, c in self.counts.items()}
         return self
+
+    def extended(self, samples: List[tuple], weight: int) -> "NaiveBayes":
+        """Копия модели, дообученная на фразах кампании (подстройка во время игры)."""
+        m = NaiveBayes(self.alpha)
+        m.counts = {lab: Counter(c) for lab, c in self.counts.items()}
+        m.vocab = set(self.vocab)
+        return m.fit(samples, weight)
 
     def predict(self, toks: List[str]) -> Optional[Dict[str, float]]:
         feats = [f for f in features(toks) if f in self.vocab]
@@ -112,7 +123,10 @@ def train(corpus: dict, actions: List[str]) -> NaiveBayes:
     for i, p in enumerate(phrases):
         if not isinstance(p, dict) or not isinstance(p.get("text"), str) or p.get("action") not in actions:
             raise DataError("train_phrases.phrases[" + str(i) + "]: нужен text и action из " + ", ".join(actions))
-        samples.append((p["text"], p["action"]))
+        if p.get("split") not in ("train", "test"):
+            raise DataError("train_phrases.phrases[" + str(i) + "].split: train или test")
+        if p["split"] == "train":
+            samples.append((p["text"], p["action"]))
     missing = set(actions) - {a for _, a in samples}
     if missing:
         raise DataError("train_phrases: нет примеров для " + ", ".join(sorted(missing)))

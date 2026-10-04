@@ -1,7 +1,7 @@
 {
- "schema_version": 2,
+ "schema_version": 3,
  "meta": {
-  "title": "Кочто — Город помнит (MVP 2)",
+  "title": "Кочто — Город помнит (MVP 3)",
   "election_week": 12,
   "election_period_weeks": 12,
   "actions_per_week": 3,
@@ -20,12 +20,16 @@
   "drift_k": 1.2,
   "decay": 0.04,
   "flip_trust_penalty": 8,
-  "repeat_divisor": 1.0,
+  "repeat_divisor": 1.5,
   "align_k": 6.0,
   "broken_mistrust_mult": 0.5,
   "trust_vote_base": 0.5,
   "turnout_noise": 0.03,
-  "meeting_fatigue": 0.75
+  "meeting_fatigue": 0.75,
+  "promise_pile": 0.5,
+  "learned_weight": 2,
+  "learned_cap": 300,
+  "zero_sum": 0.4
  },
  "skills": {
   "charm": {
@@ -65,7 +69,7 @@
    "skill": "eloquence",
    "difficulty": 35,
    "cost": 0,
-   "base": 16,
+   "base": 12,
    "default_deadline": 4,
    "max_deadline": 10,
    "requires": [
@@ -133,7 +137,8 @@
   "kept_trust": 10,
   "kept_support": 6,
   "broken_trust": -14,
-  "broken_support": -12
+  "broken_support": -12,
+  "repromise_trust": -5
  },
  "groups": {
   "workers": {
@@ -223,7 +228,7 @@
     "trust": 40
    },
    "salience": {
-    "plant_expansion": 40,
+    "plant_expansion": 60,
     "tariff_freeze": 50,
     "trade_levy": 95
    },
@@ -265,7 +270,7 @@
    "stance": {
     "workers": 0.9,
     "elders": -0.6,
-    "business": 0.4
+    "business": 0.6
    },
    "forms": {
     "im": "расширение завода",
@@ -290,8 +295,8 @@
   "tariff_freeze": {
    "council_difficulty": 10,
    "stance": {
-    "workers": 0.5,
-    "elders": 0.9,
+    "workers": 0.35,
+    "elders": 0.75,
     "business": -0.7
    },
    "forms": {
@@ -319,7 +324,7 @@
    "council_difficulty": 0,
    "stance": {
     "workers": 0.3,
-    "elders": 0.4,
+    "elders": 0.2,
     "business": -0.9
    },
    "forms": {
@@ -356,7 +361,7 @@
   },
   "title": "мэр",
   "positions": {
-   "plant_expansion": 1,
+   "plant_expansion": 0,
    "tariff_freeze": -1,
    "trade_levy": -1
   },
@@ -495,7 +500,8 @@
    "отказ",
    "недопуст",
    "отклон",
-   "недопущ"
+   "недопущ",
+   "нельз"
   ],
   "negatable": [
    "поддерж",
@@ -594,5 +600,59 @@
   "failed_attempt_cut": 10,
   "sympathy_trust": 3,
   "statement_threat": 0.4
+ },
+ "council": {
+  "seats": 9,
+  "threshold": 0.05,
+  "seat_bonus": 2,
+  "start": {
+   "united": 5,
+   "changes": 2,
+   "indep": 2,
+   "player": 0
+  },
+  "lists": {
+   "united": {
+    "name": "«Единый город»",
+    "vote": "rival"
+   },
+   "player": {
+    "name": "Блок кандидата",
+    "vote": "player"
+   },
+   "changes": {
+    "name": "«Городские перемены»",
+    "vote": "base",
+    "base": {
+     "workers": 10,
+     "elders": 5,
+     "business": 12
+    }
+   },
+   "indep": {
+    "name": "«Независимые»",
+    "vote": "base",
+    "base": {
+     "workers": 5,
+     "elders": 8,
+     "business": 9
+    }
+   }
+  }
+ },
+ "improver": {
+  "meeting": "Встретиться с {group_tv} и выслушать их",
+  "statement": "Публично заявить: я {side_pos}",
+  "promise": "Пообещать: я {side_pos}, срок {deadline} нед.",
+  "initiative": "Внести в совет инициативу, чтобы {side_goal}",
+  "interview": "Дать интервью {paper_dat}",
+  "interview_topic": "Дать интервью {paper_dat} и заявить: я {side_pos}",
+  "security": "Нанять охрану",
+  "publicize": "Заявить об угрозах публично и обратиться в полицию",
+  "missing": {
+   "group": "…(с кем?)",
+   "proposal": "…(по какому вопросу?)",
+   "paper": "…(какой газете?)"
+  }
  }
 }

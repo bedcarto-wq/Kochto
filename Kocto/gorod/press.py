@@ -129,6 +129,13 @@ def render(state: State, data: dict, paper_id: str, fact: Fact, rng: random.Rand
             "lead": _fill(t["lead"], s, tid).strip()}
 
 
+def _stale(state: State, data: dict, pid: str, f: Fact) -> bool:
+    """Все подходящие шаблоны свежие — заметка повторила бы недавнюю; газета предпочтёт другой факт."""
+    angle = _angle(state, data, pid, f)
+    ids = [t["id"] for t in data["press"]["kinds"][f.kind] if t["angle"] in (angle, "neutral")]
+    return min(state.press_used.get(t, -99) for t in ids) >= state.week - REPEAT_WEEKS
+
+
 def write_week(state: State, data: dict, facts: List[Fact], rng: random.Random) -> List[dict]:
     out, taken = [], set()
     if not facts:
@@ -136,7 +143,7 @@ def write_week(state: State, data: dict, facts: List[Fact], rng: random.Random) 
     for pid in sorted(data["papers"]):
         def score(f: Fact) -> float:
             base = (100.0 if f.kind in ("election", "death") else f.magnitude) * _interest(data, pid, f)
-            return base * (0.3 if f.id in taken else 1.0)
+            return base * (0.3 if f.id in taken else 1.0) * (0.3 if _stale(state, data, pid, f) else 1.0)
         fact = max(facts, key=lambda f: (score(f), f.id))
         taken.add(fact.id)
         out.append(render(state, data, pid, fact, rng))

@@ -48,10 +48,13 @@ def _clamp(v: float) -> float:
 
 def _simulate(state, data: dict, deltas: Dict[str, Dict[str, float]]) -> float:
     groups = copy.deepcopy(state.groups)
+    zs = float(data["tuning"]["zero_sum"])
     for gid, d in deltas.items():
         g = groups[gid]
-        g.support_player = _clamp(g.support_player + d.get("support", 0.0))
-        g.support_rival = _clamp(g.support_rival + d.get("rival", 0.0))
+        sup, riv = d.get("support", 0.0), d.get("rival", 0.0)
+        sup, riv = sup - zs * max(riv, 0.0), riv - zs * max(sup, 0.0)  # как engine._apply
+        g.support_player = _clamp(g.support_player + sup)
+        g.support_rival = _clamp(g.support_rival + riv)
         g.trust = _clamp(g.trust + d.get("trust", 0.0))
     return margin(groups, data) - margin(state.groups, data)
 
