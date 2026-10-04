@@ -1,0 +1,645 @@
+{
+ "schema_version": 3,
+ "kinds": {
+  "meeting_ok": [
+   {
+    "id": "mo1",
+    "angle": "pro",
+    "headline": "{player} {prishel} к {group_dat} — и {ego} выслушали",
+    "lead": "Встреча кандидата с {group_tv} прошла без дежурных речей. {voice_pleased}"
+   },
+   {
+    "id": "mo2",
+    "angle": "contra",
+    "headline": "Кандидат {player} ищет голоса среди {group_rod}",
+    "lead": "Очередная встреча с {group_tv}. Обещаний много, конкретики мало, считает наш обозреватель."
+   },
+   {
+    "id": "mo3",
+    "angle": "neutral",
+    "headline": "{player} встретил{sya} с {group_tv}",
+    "lead": "Обсуждали то, что волнует {group_vin} больше всего. По итогам — осторожный интерес."
+   },
+   {
+    "id": "mo4",
+    "angle": "pro",
+    "headline": "{group_im} — {player}: разговор по делу",
+    "lead": "Кандидат пришёл без свиты и записывал вопросы в блокнот. {voice_pleased}"
+   },
+   {
+    "id": "mo5",
+    "angle": "contra",
+    "headline": "{player} снова у {group_rod}. Что изменилось?",
+    "lead": "Встреча прошла гладко, но выводы делать рано, считают в мэрии."
+   },
+   {
+    "id": "mo6",
+    "angle": "neutral",
+    "headline": "{group_im} и {player} поговорили о главном",
+    "lead": "Следующую встречу стороны договорились провести через месяц."
+   }
+  ],
+  "meeting_fail": [
+   {
+    "id": "mf1",
+    "angle": "pro",
+    "headline": "Трудный разговор: {group_im} пока не доверяют кандидату",
+    "lead": "{player} не {ushel} от неудобных вопросов, но встреча вышла напряжённой."
+   },
+   {
+    "id": "mf2",
+    "angle": "contra",
+    "headline": "{player}: холодный приём у {group_rod}",
+    "lead": "Зал наполовину пуст, вопросы — злые. {voice_angry}"
+   },
+   {
+    "id": "mf3",
+    "angle": "neutral",
+    "headline": "{player} и {group_im}: встреча не задалась",
+    "lead": "Стороны разошлись, не договорившись."
+   }
+  ],
+  "statement": [
+   {
+    "id": "st1",
+    "angle": "pro",
+    "headline": "{player}: «Я {side_pos}»",
+    "lead": "Кандидат обозначил позицию по главному вопросу недели. {voice_main}"
+   },
+   {
+    "id": "st2",
+    "angle": "contra",
+    "headline": "{player} выступил{a} {side_pos}. Кто заплатит?",
+    "lead": "Громкое заявление пока не подкреплено ни расчётами, ни голосами в совете. {voice_main}"
+   },
+   {
+    "id": "st3",
+    "angle": "neutral",
+    "headline": "{player} высказал{sya} {side_pos}",
+    "lead": "Позиция кандидата теперь известна городу. {voice_main}"
+   },
+   {
+    "id": "st4",
+    "angle": "pro",
+    "headline": "{player} назвал{a} позицию: {side_pos}",
+    "lead": "Кандидат не стал уходить от острой темы. {voice_main}"
+   },
+   {
+    "id": "st5",
+    "angle": "contra",
+    "headline": "Слова без расчётов: {player} {side_pos}",
+    "lead": "Откуда возьмутся деньги, кандидат не уточнил{a}. {voice_main}"
+   },
+   {
+    "id": "st6",
+    "angle": "neutral",
+    "headline": "Позиция кандидата: {side_pos}",
+    "lead": "{player} выступил{a} с заявлением. {voice_main}"
+   }
+  ],
+  "statement_weak": [
+   {
+    "id": "sw1",
+    "angle": "pro",
+    "headline": "{player} снова о том же: {side_pos}",
+    "lead": "Кандидат повторил позицию. Город её уже слышал."
+   },
+   {
+    "id": "sw2",
+    "angle": "contra",
+    "headline": "{player} повторяет одно и то же",
+    "lead": "Сколько раз нужно заявить {side_pos}, чтобы что-то изменилось? Пока — ни разу."
+   },
+   {
+    "id": "sw3",
+    "angle": "neutral",
+    "headline": "{player} вновь высказал{sya} {side_pos}",
+    "lead": "Новых аргументов не прозвучало."
+   }
+  ],
+  "flip_flop": [
+   {
+    "id": "ff1",
+    "angle": "pro",
+    "headline": "{player} пересмотрел{a} позицию: теперь {side_pos}",
+    "lead": "Кандидат объясняет разворот новыми данными. Убедит ли это избирателей — вопрос."
+   },
+   {
+    "id": "ff2",
+    "angle": "contra",
+    "headline": "Флюгер: {player} теперь {side_pos}",
+    "lead": "Ещё недавно кандидат говорил обратное. Город помнит."
+   },
+   {
+    "id": "ff3",
+    "angle": "neutral",
+    "headline": "{player} сменил{a} позицию по вопросу: {prop_im}",
+    "lead": "Теперь кандидат выступает {side_pos}."
+   }
+  ],
+  "promise": [
+   {
+    "id": "pr1",
+    "angle": "pro",
+    "headline": "{player} дал{a} слово: {side_goal} за {deadline} нед.",
+    "lead": "Срок назван публично — значит, будет с кого спросить. {voice_main}"
+   },
+   {
+    "id": "pr2",
+    "angle": "contra",
+    "headline": "Ещё одно обещание: {player} собирается {side_goal}",
+    "lead": "Срок — {deadline} нед. Наш календарь уже отмечен. {voice_main}"
+   },
+   {
+    "id": "pr3",
+    "angle": "neutral",
+    "headline": "{player} пообещал{a} {side_goal}",
+    "lead": "Срок — {deadline} нед."
+   },
+   {
+    "id": "pr4",
+    "angle": "pro",
+    "headline": "Срок назван: {player} обещает {side_goal}",
+    "lead": "На выполнение — {deadline} нед. {voice_main}"
+   },
+   {
+    "id": "pr5",
+    "angle": "contra",
+    "headline": "Обещать не мешки ворочать: {player} и {prop_im}",
+    "lead": "Срок — {deadline} нед. Проверим. {voice_main}"
+   },
+   {
+    "id": "pr6",
+    "angle": "neutral",
+    "headline": "Новое обещание кандидата: {prop_im}",
+    "lead": "{player} обещает {side_goal} за {deadline} нед."
+   }
+  ],
+  "promise_kept": [
+   {
+    "id": "pk1",
+    "angle": "pro",
+    "headline": "Слово сдержано: {player} сумел{a} {side_goal}",
+    "lead": "Обещание, данное на {made_week}-й неделе, выполнено. {voice_pleased}"
+   },
+   {
+    "id": "pk2",
+    "angle": "contra",
+    "headline": "{player} выполнил{a} обещание. Надолго ли?",
+    "lead": "Решение принято, но цену городу ещё предстоит посчитать."
+   },
+   {
+    "id": "pk3",
+    "angle": "neutral",
+    "headline": "Обещание выполнено: {prop_im}",
+    "lead": "{player} сделал{a} то, что обещал{a} на {made_week}-й неделе."
+   }
+  ],
+  "promise_broken": [
+   {
+    "id": "pb1",
+    "angle": "pro",
+    "headline": "Не успел{a}: {player} сорвал{a} обещание",
+    "lead": "Срок истёк. Сторонники кандидата признают: ошибка серьёзная."
+   },
+   {
+    "id": "pb2",
+    "angle": "contra",
+    "headline": "Обещал{a} и забыл{a}: {player} не {smog} {side_goal}",
+    "lead": "Срок истёк на этой неделе. {voice_angry}"
+   },
+   {
+    "id": "pb3",
+    "angle": "neutral",
+    "headline": "{player}: срок обещания истёк",
+    "lead": "Кандидат обещал {side_goal}, но не сделал этого."
+   }
+  ],
+  "initiative_ok": [
+   {
+    "id": "io1",
+    "angle": "pro",
+    "headline": "Совет поддержал кандидата: {prop_im} — {decision}",
+    "lead": "Инициатива, которую {vnes} {player}, прошла голосование. {voice_main}"
+   },
+   {
+    "id": "io2",
+    "angle": "contra",
+    "headline": "Совет продавил: {prop_im} — {decision}",
+    "lead": "Инициатор — {player}. Последствия городу ещё предстоит оценить. {voice_main}"
+   },
+   {
+    "id": "io3",
+    "angle": "neutral",
+    "headline": "Решение совета: {prop_im} — {decision}",
+    "lead": "Инициативу {vnes} {player}."
+   }
+  ],
+  "initiative_fail": [
+   {
+    "id": "if1",
+    "angle": "pro",
+    "headline": "{player}: инициатива отложена, совет пока не готов",
+    "lead": "Кандидат обещает вернуться к вопросу."
+   },
+   {
+    "id": "if2",
+    "angle": "contra",
+    "headline": "Провал в совете: {player} не собрал{a} голосов",
+    "lead": "Попытка {side_goal} закончилась ничем."
+   },
+   {
+    "id": "if3",
+    "angle": "neutral",
+    "headline": "Совет отклонил инициативу кандидата",
+    "lead": "Автор — {player}. Тема: {prop_im}."
+   }
+  ],
+  "interview_ok": [
+   {
+    "id": "iv1",
+    "angle": "pro",
+    "headline": "{player}: интервью {paper_dat}",
+    "lead": "Кандидат подробно рассказал о планах. {voice_main}"
+   },
+   {
+    "id": "iv2",
+    "angle": "contra",
+    "headline": "{player} раздаёт интервью",
+    "lead": "Говорит гладко. Но что из сказанного будет сделано?"
+   },
+   {
+    "id": "iv3",
+    "angle": "neutral",
+    "headline": "{player} дал{a} интервью {paper_dat}",
+    "lead": "Разговор вышел подробным."
+   },
+   {
+    "id": "iv4",
+    "angle": "pro",
+    "headline": "Большой разговор с {player}",
+    "lead": "Кандидат ответил на вопросы редакции без бумажки. {voice_main}"
+   },
+   {
+    "id": "iv5",
+    "angle": "contra",
+    "headline": "{player} в интервью {paper_dat}: много слов",
+    "lead": "Конкретики меньше, чем хотелось бы."
+   },
+   {
+    "id": "iv6",
+    "angle": "neutral",
+    "headline": "Интервью недели: {player}",
+    "lead": "Кандидат дал{a} интервью {paper_dat}."
+   }
+  ],
+  "interview_gaffe": [
+   {
+    "id": "ig1",
+    "angle": "pro",
+    "headline": "Неудачное интервью: {player} оговорил{sya}",
+    "lead": "{player} уже уточнил{a} свои слова."
+   },
+   {
+    "id": "ig2",
+    "angle": "contra",
+    "headline": "{player} оговорил{sya} в интервью {paper_dat}",
+    "lead": "Фразу уже разбирают на цитаты."
+   },
+   {
+    "id": "ig3",
+    "angle": "neutral",
+    "headline": "{player}: интервью вызвало споры",
+    "lead": "Часть высказываний кандидата прозвучала двусмысленно."
+   }
+  ],
+  "rival_meeting": [
+   {
+    "id": "rm1",
+    "angle": "pro",
+    "headline": "{rival_title} {rival} встретился с {group_tv}",
+    "lead": "Разговор шёл о делах, а не о выборах, подчёркивают в мэрии."
+   },
+   {
+    "id": "rm2",
+    "angle": "contra",
+    "headline": "{rival} вспомнил о {group_pr} перед выборами",
+    "lead": "Встреча прошла по привычному сценарию."
+   },
+   {
+    "id": "rm3",
+    "angle": "neutral",
+    "headline": "{rival} провёл встречу с {group_tv}",
+    "lead": "Подробности не раскрываются."
+   },
+   {
+    "id": "rm4",
+    "angle": "pro",
+    "headline": "{rival} — {group_dat}: «Город своих не бросает»",
+    "lead": "{rival_title} пообещал вернуться с конкретными решениями."
+   },
+   {
+    "id": "rm5",
+    "angle": "contra",
+    "headline": "Снова {rival}, снова {group_im}",
+    "lead": "Сценарий встречи не меняется годами."
+   },
+   {
+    "id": "rm6",
+    "angle": "neutral",
+    "headline": "{rival} побывал у {group_rod}",
+    "lead": "Мэрия называет встречу рабочей."
+   }
+  ],
+  "rival_attack": [
+   {
+    "id": "ra1",
+    "angle": "pro",
+    "headline": "{rival}: «{player} забывает свои слова»",
+    "lead": "{rival_title} напомнил избирателям: тема — {prop_im}."
+   },
+   {
+    "id": "ra2",
+    "angle": "contra",
+    "headline": "{rival} перешёл на личности",
+    "lead": "Вместо программы — нападки на соперника. Тема — {prop_im}."
+   },
+   {
+    "id": "ra3",
+    "angle": "neutral",
+    "headline": "{rival} раскритиковал соперника",
+    "lead": "Под огнём — {player}. Повод — {prop_im}."
+   }
+  ],
+  "election": [
+   {
+    "id": "el1",
+    "angle": "pro",
+    "headline": "Итоги выборов: {player} — {result}",
+    "lead": "{player}: {pv} голосов, {rival}: {rv}."
+   },
+   {
+    "id": "el2",
+    "angle": "contra",
+    "headline": "Город проголосовал: {player} — {result}",
+    "lead": "{player}: {pv}, {rival}: {rv}."
+   },
+   {
+    "id": "el3",
+    "angle": "neutral",
+    "headline": "Выборы: {player} — {result}",
+    "lead": "{player}: {pv}, {rival}: {rv}."
+   }
+  ],
+  "security": [
+   {
+    "id": "se1",
+    "angle": "pro",
+    "headline": "{player} усилил{a} меры безопасности",
+    "lead": "После тревожных сигналов кандидат нанял охрану."
+   },
+   {
+    "id": "se2",
+    "angle": "contra",
+    "headline": "{player} нанял{a} охрану",
+    "lead": "Кандидат, похоже, считает себя важнее, чем есть."
+   },
+   {
+    "id": "se3",
+    "angle": "neutral",
+    "headline": "{player}: у кандидата появилась охрана",
+    "lead": "Штаб подтвердил найм частной охраны."
+   }
+  ],
+  "publicize": [
+   {
+    "id": "pu1",
+    "angle": "pro",
+    "headline": "{player}: «Мне угрожают, и я не промолчу»",
+    "lead": "Кандидат открыто рассказал{a} о давлении. Горожане сочувствуют."
+   },
+   {
+    "id": "pu2",
+    "angle": "contra",
+    "headline": "{player} заявил{a} об угрозах. Пиар?",
+    "lead": "Доказательств пока не представлено."
+   },
+   {
+    "id": "pu3",
+    "angle": "neutral",
+    "headline": "{player} обратил{sya} в полицию",
+    "lead": "Кандидат сообщил{a} об угрозах в свой адрес."
+   }
+  ],
+  "publicize_panic": [
+   {
+    "id": "pp1",
+    "angle": "pro",
+    "headline": "{player} говорит о давлении",
+    "lead": "Пока неясно, насколько серьёзны угрозы."
+   },
+   {
+    "id": "pp2",
+    "angle": "contra",
+    "headline": "Паника в штабе: {player} видит заговор",
+    "lead": "Кандидат рассказал{a} об угрозах, которых никто не заметил."
+   },
+   {
+    "id": "pp3",
+    "angle": "neutral",
+    "headline": "{player} заявил{a} об угрозах",
+    "lead": "Полиция фактов давления не подтверждает."
+   }
+  ],
+  "threat_warning": [
+   {
+    "id": "tw1",
+    "angle": "pro",
+    "headline": "{player}: кандидату угрожают",
+    "lead": "В штаб пришло анонимное письмо. Источник — {enemy_im}, считают в штабе."
+   },
+   {
+    "id": "tw2",
+    "angle": "contra",
+    "headline": "{player}: слухи о давлении",
+    "lead": "Подробностей нет. Штаб нервничает."
+   },
+   {
+    "id": "tw3",
+    "angle": "neutral",
+    "headline": "Анонимные угрозы в адрес штаба",
+    "lead": "Письмо пришло после решений, неудобных для {enemy_rod}."
+   }
+  ],
+  "attack_failed": [
+   {
+    "id": "af1",
+    "angle": "pro",
+    "headline": "Покушение сорвано: {player} не пострадал{a}",
+    "lead": "Охрана сработала. Город в шоке."
+   },
+   {
+    "id": "af2",
+    "angle": "contra",
+    "headline": "{player}: нападение на штаб. Версии",
+    "lead": "Полиция не исключает инсценировку."
+   },
+   {
+    "id": "af3",
+    "angle": "neutral",
+    "headline": "У штаба кандидата задержан нападавший",
+    "lead": "{player} не пострадал{a}."
+   }
+  ],
+  "attack_injury": [
+   {
+    "id": "ai1",
+    "angle": "pro",
+    "headline": "{player} ранен{a}, но не сдаётся",
+    "lead": "Кандидат обещает вернуться к работе через {weeks} нед."
+   },
+   {
+    "id": "ai2",
+    "angle": "contra",
+    "headline": "{player} в больнице после нападения",
+    "lead": "Кампания встала минимум на {weeks} нед."
+   },
+   {
+    "id": "ai3",
+    "angle": "neutral",
+    "headline": "{player} пострадал{a} при нападении",
+    "lead": "Врачи говорят о {weeks} нед. восстановления."
+   }
+  ],
+  "death": [
+   {
+    "id": "de1",
+    "angle": "pro",
+    "headline": "Город потерял {player}",
+    "lead": "Кандидат погиб{la} на {week}-й неделе кампании. Следствие ищет заказчиков."
+   },
+   {
+    "id": "de2",
+    "angle": "contra",
+    "headline": "{player}: гибель кандидата",
+    "lead": "Следствие проверяет все версии."
+   },
+   {
+    "id": "de3",
+    "angle": "neutral",
+    "headline": "{player} погиб{la}",
+    "lead": "Трагедия произошла на {week}-й неделе кампании."
+   }
+  ],
+  "rival_statement": [
+   {
+    "id": "rs1",
+    "angle": "pro",
+    "headline": "{rival} поддержал {side_pos}",
+    "lead": "{rival_title} прислушался к горожанам."
+   },
+   {
+    "id": "rs2",
+    "angle": "contra",
+    "headline": "{rival} перехватывает чужую повестку",
+    "lead": "Ещё вчера мэр говорил обратное. Теперь он {side_pos}."
+   },
+   {
+    "id": "rs3",
+    "angle": "neutral",
+    "headline": "{rival} сменил позицию",
+    "lead": "Теперь мэр {side_pos}."
+   }
+  ],
+  "rival_compromat": [
+   {
+    "id": "rc1",
+    "angle": "pro",
+    "headline": "Неудобные вопросы к кандидату",
+    "lead": "В мэрии распространили документы о прошлом кандидата. Мишень — {player}."
+   },
+   {
+    "id": "rc2",
+    "angle": "contra",
+    "headline": "Грязная кампания: вброс против кандидата",
+    "lead": "Мишень — {player}. Источник документов — люди из окружения мэра."
+   },
+   {
+    "id": "rc3",
+    "angle": "neutral",
+    "headline": "Вброс против кандидата",
+    "lead": "В соцсетях появились документы о прошлом кандидата. Мишень — {player}."
+   }
+  ],
+  "rival_threat": [
+   {
+    "id": "rt1",
+    "angle": "pro",
+    "headline": "Предвыборная напряжённость растёт",
+    "lead": "Мэрия к давлению на кандидатов отношения не имеет, заявил {rival}."
+   },
+   {
+    "id": "rt2",
+    "angle": "contra",
+    "headline": "Давление на кандидата: кто стоит за угрозами?",
+    "lead": "Мишень — {player}. Наш источник указывает на окружение мэра."
+   },
+   {
+    "id": "rt3",
+    "angle": "neutral",
+    "headline": "{player}: штаб сообщает о давлении",
+    "lead": "Подробности не раскрываются."
+   }
+  ],
+  "security_lost": [
+   {
+    "id": "sl1",
+    "angle": "pro",
+    "headline": "{player} остал{sya} без части охраны",
+    "lead": "Причина — {reason}. Штаб ищет замену."
+   },
+   {
+    "id": "sl2",
+    "angle": "contra",
+    "headline": "Беспорядок в штабе: охрана ушла",
+    "lead": "{player} лишил{sya} охраны. Причина — {reason}."
+   },
+   {
+    "id": "sl3",
+    "angle": "neutral",
+    "headline": "Перемены в охране кандидата",
+    "lead": "{player}: {reason}."
+   }
+  ]
+ },
+ "decision_words": {
+  "1": "принято",
+  "-1": "заблокировано"
+ },
+ "result_words": {
+  "win": "победа",
+  "loss": "поражение"
+ },
+ "gender": {
+  "m": {
+   "a": "",
+   "sya": "ся",
+   "prishel": "пришёл",
+   "ego": "его",
+   "smog": "смог",
+   "ushel": "ушёл",
+   "vnes": "внёс",
+   "la": ""
+  },
+  "f": {
+   "a": "а",
+   "sya": "ась",
+   "prishel": "пришла",
+   "ego": "её",
+   "smog": "смогла",
+   "ushel": "ушла",
+   "vnes": "внесла",
+   "la": "ла"
+  }
+ }
+}
