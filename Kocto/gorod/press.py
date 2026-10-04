@@ -84,7 +84,11 @@ def _slots(state: State, data: dict, fact: Fact) -> Dict[str, str]:
         for case, val in data["papers"][fact.paper]["forms"].items():
             s["paper_" + case] = val
         s["paper"] = s["paper_im"]
-    for key in ("deadline", "made_week", "pv", "rv"):
+    enemy = fact.extra.get("enemy")
+    if enemy:
+        for case, val in data["enemies"][enemy]["forms"].items():
+            s["enemy_" + case] = val
+    for key in ("deadline", "made_week", "pv", "rv", "weeks", "reason", "level"):
         if key in fact.extra:
             s[key] = str(fact.extra[key])
     if "won" in fact.extra:
@@ -131,7 +135,7 @@ def write_week(state: State, data: dict, facts: List[Fact], rng: random.Random) 
         return out
     for pid in sorted(data["papers"]):
         def score(f: Fact) -> float:
-            base = (100.0 if f.kind == "election" else f.magnitude) * _interest(data, pid, f)
+            base = (100.0 if f.kind in ("election", "death") else f.magnitude) * _interest(data, pid, f)
             return base * (0.3 if f.id in taken else 1.0)
         fact = max(facts, key=lambda f: (score(f), f.id))
         taken.add(fact.id)

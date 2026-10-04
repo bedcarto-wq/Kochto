@@ -10,6 +10,9 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 from .engine import Card
+from .nlu import fuzzy_prefix
+
+AI_MIN_CONFIDENCE = 0.45
 
 SLOT_RU = {"group": "группа", "proposal": "вопрос", "paper": "газета"}
 WORD = re.compile(r"[а-яa-z0-9]+")
@@ -19,6 +22,8 @@ WORD = re.compile(r"[а-яa-z0-9]+")
 class Parse:
     card: Optional[Card]
     guessed: bool = False
+    source: str = ""  # словарь | ИИ | догадка
+    confidence: float = 0.0
     alternatives: List[str] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
 
@@ -52,10 +57,14 @@ def _entities(data: dict, toks: List[str]) -> List[Tuple[int, str, str]]:
         for alias, kind, eid in table:
             n = _match_at(toks, i, alias)
             if n:
-                out.append((i, kind, eid))
+                out.append((i, kind, eid, False))
                 i += n
                 break
         else:
+            for alias, kind, eid in table:
+                if " " not in alias and fuzzy_prefix(toks[i], alias):
+                    out.append((i, kind, eid, True))
+                    break
             i += 1
     return out
 
@@ -100,13 +109,26 @@ def parse(data: dict, text: str) -> Parse:
         return Parse(None, notes=["пустая фраза"])
     ents = _entities(data, toks)
     by_kind = {"group": [], "proposal": [], "paper": []}
-    for _, kind, eid in ents:
+    notes, guessed = [], False
+    for i, kind, eid, fuzzy in ents:
         if eid not in by_kind[kind]:
             by_kind[kind].append(eid)
+        if fuzzy:
+            notes.append("похоже на опечатку: «" + toks[i] + "» понято как «" + _label(data, kind, eid) + "»")
     acts = _actions(data, toks)
-    notes, guessed = [], False
-    if acts:
+    probs = data["_nlu"].predict(toks) if "_nlu" in data else None
+    source, conf = "словарь", 1.0
+    if len(acts) == 1:
         action = acts[0]
+    elif acts:
+        action = max(acts, key=lambda a: (probs or {}).get(a, 0.0)) if probs else acts[0]
+        conf = (probs or {}).get(action, 0.0)
+        acts = [action] + [a for a in acts if a != action]
+    elif probs and max(probs.values()) >= AI_MIN_CONFIDENCE:
+        action = max(probs, key=lambda a: (probs[a], a))
+        source, conf, guessed = "ИИ", probs[action], True
+        notes.append("понято по смыслу (ИИ, уверенность " + str(round(conf * 100)) + "%): "
+                     + data["actions"][action]["name"])
     elif by_kind["paper"]:
         action, guessed = "interview", True
     elif by_kind["group"]:
@@ -115,9 +137,11 @@ def parse(data: dict, text: str) -> Parse:
         action, guessed = "statement", True
     else:
         return Parse(None, notes=["не нашёл ни действия, ни группы, ни вопроса, ни газеты"])
-    if guessed:
+    if guessed and source != "ИИ":
+        source, conf = "догадка", 0.3
         notes.append("глагол действия не найден — предполагаю: " + data["actions"][action]["name"])
-    if len(acts) > 1:
+    generic_only = acts[1:] == ["statement"]  # «заявить об угрозах», «публично пообещать» — одно действие
+    if len(acts) > 1 and not generic_only:
         notes.append("в фразе несколько действий; выполняется одно: " + data["actions"][action]["name"]
                      + ". Остальное — отдельной фразой")
     card = Card(action=action, text=text)
@@ -137,4 +161,9 @@ def parse(data: dict, text: str) -> Parse:
     for kind in ("group", "proposal", "paper"):
         if getattr(card, kind) and kind not in data["actions"][action]["requires"] and action != "interview":
             notes.append("для действия «" + data["actions"][action]["name"] + "» " + SLOT_RU[kind] + " не учитывается")
-    return Parse(card, guessed=guessed, alternatives=acts[1:], notes=notes)
+    return Parse(card, guessed=guessed, alternatives=acts[1:], notes=notes, source=source,
+                 confidence=round(conf, 3))
+
+
+def _label(data: dict, kind: str, eid: str) -> str:
+    return data[{"group": "groups", "proposal": "proposals", "paper": "papers"}[kind]][eid]["forms"]["im"]

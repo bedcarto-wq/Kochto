@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 SLOTS = ("group", "proposal", "paper")
 
 
@@ -58,7 +58,10 @@ def load_data(data_dir: Optional[Path] = None) -> dict:
     root = Path(data_dir) if data_dir else DATA_DIR
     data = load_json(root / "gorod_mvp.json")
     data["press"] = load_json(root / "press.json")
+    corpus = load_json(root / "train_phrases.json")
     validate(data)
+    from .nlu import train
+    data["_nlu"] = train(corpus, list(data["actions"]))
     return data
 
 
@@ -73,7 +76,7 @@ def validate(data: dict) -> None:
     for k in ("income_base", "income_per_support"):
         _need(eco, k, float, "economy")
     tun = _need(data, "tuning", dict, "gorod_mvp")
-    for k in ("drift_k", "decay", "flip_trust_penalty", "repeat_divisor", "align_k",
+    for k in ("drift_k", "decay", "flip_trust_penalty", "repeat_divisor", "align_k", "meeting_fatigue",
               "broken_mistrust_mult", "trust_vote_base", "turnout_noise"):
         _need(tun, k, float, "tuning")
     skills = _need(data, "skills", dict, "gorod_mvp")
@@ -122,7 +125,7 @@ def validate(data: dict) -> None:
             _need(forms, case, str, w + ".forms")
         _need(p, "aliases", list, w)
     actions = _need(data, "actions", dict, "gorod_mvp")
-    for aid in ("meeting", "statement", "promise", "initiative", "interview"):
+    for aid in ACTION_IDS:
         a = _need(actions, aid, dict, "actions")
         w = "actions." + aid
         _need(a, "name", str, w)
@@ -158,8 +161,40 @@ def validate(data: dict) -> None:
     for pid in props:
         if _need(pos, pid, int, "rival.positions") not in (-1, 0, 1):
             raise DataError("rival.positions." + pid + ": допустимо -1, 0, 1")
-    for k in ("meeting_gain", "attack_trust", "attack_support", "attack_chance"):
+    for k in ("meeting_gain", "attack_trust", "attack_support", "attack_chance", "ruthlessness",
+              "compromat_trust", "threat_push", "steal_cost_support"):
         _need(rv, k, float, "rival")
+    for k in ("dirty_after_week", "plan_horizon"):
+        _need(rv, k, int, "rival")
+    enemies = _need(data, "enemies", dict, "gorod_mvp")
+    if "rival_circle" not in enemies:
+        raise DataError("enemies: нужен rival_circle (давление со стороны соперника)")
+    for eid, e in enemies.items():
+        for case in ("im", "rod", "dat"):
+            _need(_need(e, "forms", dict, "enemies." + eid), case, str, "enemies." + eid + ".forms")
+    for pid, p in props.items():
+        en = _need(p, "enemy", dict, "proposals." + pid)
+        for side in ("1", "-1"):
+            if side not in en:
+                raise DataError("proposals." + pid + ".enemy: нет стороны " + side + " (null — врагов нет)")
+            e = en[side]
+            if e is not None:
+                if _need(e, "enemy", str, "proposals." + pid + ".enemy." + side) not in enemies:
+                    raise DataError("proposals." + pid + ".enemy." + side + ": неизвестный враг")
+                _need(e, "threat", float, "proposals." + pid + ".enemy." + side)
+    th = _need(data, "threat", dict, "gorod_mvp")
+    for k in ("start", "decay", "attack_floor", "security_shield", "attack_scale", "death_below", "injury_below",
+              "security_roll_bonus", "failed_attempt_cut", "sympathy_trust", "statement_threat"):
+        _need(th, k, float, "threat")
+    _need(th, "injury_weeks", int, "threat")
+    _need(th, "warn_levels", list, "threat")
+    sec = actions.get("security", {})
+    for k in ("max_level", "upkeep_per_level"):
+        _need(sec, k, int, "actions.security")
+    _need(sec, "threat_cut", float, "actions.security")
+    pub = actions.get("publicize", {})
+    for k in ("threat_cut", "min_threat", "trust_gain", "panic_trust"):
+        _need(pub, k, float, "actions.publicize")
     _need(rv, "attack_memory_weeks", int, "rival")
     npcs = _need(data, "npcs", dict, "gorod_mvp")
     sp = _need(npcs, "speaker", dict, "npcs")
@@ -207,7 +242,9 @@ def validate(data: dict) -> None:
         keys = set(forms)
 
 
-FACT_KINDS = ("meeting_ok", "meeting_fail", "statement", "statement_weak", "flip_flop", "promise",
+ACTION_IDS = ("meeting", "statement", "promise", "initiative", "interview", "security", "publicize")
+FACT_KINDS = ("security", "security_lost", "publicize", "publicize_panic", "threat_warning", "attack_failed",
+              "attack_injury", "death", "rival_statement", "rival_compromat", "rival_threat", "meeting_ok", "meeting_fail", "statement", "statement_weak", "flip_flop", "promise",
               "promise_kept", "promise_broken", "initiative_ok", "initiative_fail", "interview_ok",
               "interview_gaffe", "rival_meeting", "rival_attack", "election")
 
@@ -283,6 +320,14 @@ class State:
     elections: List[dict] = field(default_factory=list)
     week_cards: List[dict] = field(default_factory=list)
     determinism_policy: str = "F"
+    threat: float = 0.0
+    threat_sources: Dict[str, float] = field(default_factory=dict)
+    security: int = 0
+    warned: List[int] = field(default_factory=list)
+    injured_until: int = 0
+    dead: bool = False
+    death_week: int = 0
+    rival_memory: Dict[str, list] = field(default_factory=dict)
 
 
 def _entropy_seed() -> int:
@@ -318,7 +363,7 @@ def new_game(data: dict, player_name: str, skills: Dict[str, int], gender: str,
         policies={pid: 0 for pid in data["proposals"]}, promises=[], facts=[],
         npc_loyalty={nid: int(n["loyalty"]) for nid, n in data["npcs"].items()},
         said={}, press_used={}, week_seeds=[seed if seed is not None else _entropy_seed()],
-        next_election_week=meta["election_week"])
+        next_election_week=meta["election_week"], threat=float(data["threat"]["start"]))
 
 
 def clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:
@@ -423,6 +468,12 @@ def warnings(state: State, data: dict, card: Card) -> List[str]:
                 out.append("противоречит открытому обещанию — оно будет сорвано")
     if card.action == "initiative" and card.proposal and state.policies.get(card.proposal) == card.side and card.side:
         out.append("такое решение уже принято")
+    if card.action == "publicize" and state.threat < float(data["actions"]["publicize"]["min_threat"]):
+        out.append("реальных угроз пока нет — заявление сочтут паникой, доверие упадёт")
+    if card.action == "security" and state.security >= int(data["actions"]["security"]["max_level"]):
+        out.append("охрана уже максимальная")
+    if card.action == "security":
+        out.append("содержание охраны: " + str(data["actions"]["security"]["upkeep_per_level"]) + " в неделю за уровень")
     a = data["actions"][card.action]
     if state.money < a["cost"]:
         out.append("не хватает денег")
@@ -463,6 +514,8 @@ def _roll(state: State, data: dict, card: Card) -> dict:
 # ================= действия =================
 def perform(state: State, data: dict, card: Card) -> dict:
     """Выполнить карточку. Возвращает {'roll':..., 'tier':..., 'facts': [Fact]}."""
+    if state.dead:
+        raise RuleError("кандидат погиб — игра окончена")
     if state.actions_left <= 0:
         raise RuleError("на этой неделе действия закончились")
     miss = missing_slots(data, card)
@@ -487,6 +540,8 @@ def perform(state: State, data: dict, card: Card) -> dict:
                 raise RuleError("такое обещание уже дано (срок — неделя " + str(p.deadline_week) + ")")
         if state.policies.get(card.proposal) == card.side:
             raise RuleError("это уже сделано: обещать нечего")
+    if card.action == "security" and state.security >= int(a["max_level"]):
+        raise RuleError("охрана уже максимальная")
     roll = _roll(state, data, card)
     n_before = len(state.facts)
     state.money -= a["cost"]
@@ -539,6 +594,9 @@ def _do_statement(state, data, card, roll, mult, kind_ok="statement", base_key="
     fact = _fact(state, kind, "player", outcome, base * mult * rep * extra_scale, proposal=card.proposal,
                  side=card.side, paper=card.paper)
     _broadcast(state, data, fact, card.proposal, card.side, base, reach * mult * rep * extra_scale)
+    en = _enemy_of(data, card.proposal, card.side)
+    if en and rep == 1.0:
+        add_threat(state, en["enemy"], float(en["threat"]) * float(data["threat"]["statement_threat"]))
     return fact
 
 
@@ -586,9 +644,11 @@ def _do_meeting(state, data, card, roll, mult):
         return
     align = sum(stance(data, gid, pid) * pos * sal(data, gid, pid)
                 for pid, pos in state.positions.items() if pos)
-    d = (float(a["base"]) + float(data["tuning"]["align_k"]) * align) * mult * _mistrust(state, data, gid)
+    recent = sum(1 for f in state.facts if f.kind == "meeting_ok" and f.group == gid and f.week >= state.week - 2)
+    fatigue = float(data["tuning"]["meeting_fatigue"]) ** recent  # «вы у нас уже были» — частые встречи с одной группой дают меньше
+    d = (float(a["base"]) + float(data["tuning"]["align_k"]) * align) * mult * _mistrust(state, data, gid) * fatigue
     fact = _fact(state, "meeting_ok", "player", 1 if d >= 0 else -1, abs(d), group=gid,
-                 extra={"align": round(align, 2)})
+                 extra={"align": round(align, 2), "fatigue": fatigue})
     _apply(state, fact, gid, support=d, trust=1.0 * mult)
 
 
@@ -606,6 +666,10 @@ def _do_initiative(state, data, card, roll, mult):
     fact = _fact(state, "initiative_ok", "player", 1, base * mult, proposal=pid, side=side)
     for gid in state.groups:
         _apply(state, fact, gid, support=base * stance(data, gid, pid) * side * sal(data, gid, pid) * mult)
+    en = _enemy_of(data, pid, side)
+    if en:
+        add_threat(state, en["enemy"], float(en["threat"]))
+        fact.extra["enemy"] = en["enemy"]
     sp = data["npcs"]["speaker"]
     state.npc_loyalty["speaker"] = int(clamp(state.npc_loyalty["speaker"] + int(sp["gain_on_success"])))
     for p in state.promises:
@@ -613,8 +677,52 @@ def _do_initiative(state, data, card, roll, mult):
             _keep_promise(state, data, p)
 
 
+def add_threat(state: State, enemy: str, amount: float) -> None:
+    if amount <= 0:
+        return
+    state.threat = clamp(state.threat + amount)
+    state.threat_sources[enemy] = round(state.threat_sources.get(enemy, 0.0) + amount, 2)
+
+
+def _enemy_of(data: dict, pid: str, side: int) -> Optional[dict]:
+    return data["proposals"][pid]["enemy"][str(side)]
+
+
+def top_enemy(state: State) -> str:
+    if not state.threat_sources:
+        return ""
+    return max(state.threat_sources, key=lambda e: (state.threat_sources[e], e))
+
+
+def _do_security(state, data, card, roll, mult):
+    a = data["actions"]["security"]
+    if roll["tier"] == "fail":
+        _fact(state, "security_lost", "player", -1, 2.0, extra={"reason": "ненадёжная охрана"})
+        return
+    state.security += 1
+    state.threat = clamp(state.threat - float(a["threat_cut"]))
+    _fact(state, "security", "player", 1, 3.0 + state.security, extra={"level": state.security})
+
+
+def _do_publicize(state, data, card, roll, mult):
+    a = data["actions"]["publicize"]
+    if state.threat < float(a["min_threat"]) or roll["tier"] == "fail":
+        fact = _fact(state, "publicize_panic", "player", -1, abs(float(a["panic_trust"])))
+        for gid in state.groups:
+            _apply(state, fact, gid, trust=float(a["panic_trust"]))
+        return
+    cut = float(a["threat_cut"]) * mult
+    state.threat = clamp(state.threat - cut)
+    enemy = top_enemy(state)
+    fact = _fact(state, "publicize", "player", 1, cut, extra={"enemy": enemy})
+    for gid in state.groups:
+        _apply(state, fact, gid, trust=float(a["trust_gain"]),
+               rival=-3.0 if enemy == "rival_circle" else 0.0)
+
+
 HANDLERS = {"statement": _do_statement, "promise": _do_promise, "interview": _do_interview,
-            "meeting": _do_meeting, "initiative": _do_initiative}
+            "meeting": _do_meeting, "initiative": _do_initiative, "security": _do_security,
+            "publicize": _do_publicize}
 
 
 def _keep_promise(state: State, data: dict, p: Promise) -> None:
@@ -639,28 +747,74 @@ def _break_promise(state: State, data: dict, p: Promise) -> None:
 
 # ================= ход мира =================
 def _rival_turn(state: State, data: dict, rng: random.Random) -> None:
+    """Ход соперника выбирает rival_ai.plan; здесь — только применение и запись факта."""
+    from .rival_ai import plan
     rv = data["rival"]
-    since = state.week - int(rv["attack_memory_weeks"])
-    sins = [f for f in state.facts if f.actor == "player" and f.week > since
-            and f.kind in ("promise_broken", "flip_flop") and not f.extra.get("attacked")]
-    if sins and rng.random() < float(rv["attack_chance"]):
-        sin = max(sins, key=lambda f: (f.magnitude, f.id))
+    opt = plan(state, data, rng)
+    extra = {"why": opt.why, "value": round(opt.value, 1)}
+    if opt.kind == "meet":
+        fact = _fact(state, "rival_meeting", "rival", 1, opt.deltas[opt.group]["rival"], group=opt.group, extra=extra)
+    elif opt.kind == "attack":
+        sin = next(f for f in state.facts if f.id == opt.about)
         sin.extra["attacked"] = True
-        fact = _fact(state, "rival_attack", "rival", 1, abs(float(rv["attack_trust"])), proposal=sin.proposal,
-                     side=sin.side, extra={"about": sin.id})
-        targets = [gid for gid in state.groups if sin.kind == "flip_flop"
-                   or gid in next((p.groups for p in state.promises if p.id == sin.extra.get("promise_id")), [])]
-        for gid in targets:
-            _apply(state, fact, gid, support=float(rv["attack_support"]), trust=float(rv["attack_trust"]))
+        extra["about"] = sin.id
+        fact = _fact(state, "rival_attack", "rival", 1, abs(float(rv["attack_trust"])), proposal=opt.proposal,
+                     side=opt.side, extra=extra)
+    elif opt.kind == "steal":
+        state.rival_positions[opt.proposal] = opt.side
+        state.rival_memory.setdefault("stolen", []).append(opt.proposal)
+        fact = _fact(state, "rival_statement", "rival", 1, 8.0, proposal=opt.proposal, side=opt.side, extra=extra)
+    elif opt.kind == "compromat":
+        fact = _fact(state, "rival_compromat", "rival", 1, abs(float(rv["compromat_trust"])), group=opt.group,
+                     extra=extra)
+    else:  # threat
+        add_threat(state, "rival_circle", float(rv["threat_push"]))
+        state.rival_memory.setdefault("dirty", []).append(state.week)
+        _fact(state, "rival_threat", "rival", 1, float(rv["threat_push"]), extra=extra)
         return
-    # иначе — встреча там, где кандидат собирает больше всего голосов
-    def threat(g: str) -> tuple:
-        gs, gd = state.groups[g], data["groups"][g]
-        total = gs.support_player + gs.support_rival
-        return (gd["size"] * gd["turnout"] * (gs.support_player / total if total else 0.5), g)
-    gid = max(state.groups, key=threat)
-    fact = _fact(state, "rival_meeting", "rival", 1, float(rv["meeting_gain"]), group=gid)
-    _apply(state, fact, gid, rival=float(rv["meeting_gain"]))
+    for gid, d in opt.deltas.items():
+        _apply(state, fact, gid, support=d.get("support", 0.0), trust=d.get("trust", 0.0), rival=d.get("rival", 0.0))
+
+
+def _threat_phase(state: State, data: dict, rng: random.Random) -> None:
+    """Угрозы: содержание охраны, затухание, предупреждения, покушение. Смерть = конец игры."""
+    th = data["threat"]
+    upkeep = int(data["actions"]["security"]["upkeep_per_level"]) * state.security
+    if state.security and state.money < upkeep:
+        state.security -= 1
+        _fact(state, "security_lost", "player", -1, 4.0, extra={"reason": "нечем платить охране"})
+    else:
+        state.money -= upkeep
+    state.threat = clamp(state.threat - float(th["decay"]))
+    for level in th["warn_levels"]:
+        if state.threat >= level and level not in state.warned:
+            state.warned.append(level)
+            _fact(state, "threat_warning", "city", -1, 6.0 + level / 10.0,
+                  extra={"enemy": top_enemy(state) or "rival_circle", "level": level})
+        elif state.threat < level - 10 and level in state.warned:
+            state.warned.remove(level)
+    p = max(0.0, state.threat - float(th["attack_floor"]) - float(th["security_shield"]) * state.security)
+    p = p / 100.0 * float(th["attack_scale"])
+    if p <= 0 or rng.random() >= p:
+        return
+    sev = rng.randint(1, 100) + int(th["security_roll_bonus"]) * state.security
+    enemy = top_enemy(state) or "rival_circle"
+    if sev < float(th["death_below"]):
+        state.dead = True
+        state.death_week = state.week
+        state.actions_left = 0
+        _fact(state, "death", "player", -1, 100.0, extra={"enemy": enemy})
+    elif sev < float(th["injury_below"]):
+        state.injured_until = state.week + int(th["injury_weeks"])
+        _fact(state, "attack_injury", "player", -1, 15.0, extra={"enemy": enemy, "weeks": th["injury_weeks"]})
+    else:
+        state.threat = clamp(state.threat - float(th["failed_attempt_cut"]))
+        fact = _fact(state, "attack_failed", "player", 1, 12.0, extra={"enemy": enemy})
+        for gid in state.groups:
+            _apply(state, fact, gid, trust=float(th["sympathy_trust"]))
+
+
+STOLEN_CREDIT = 0.5  # перехваченной позиции верят вполовину: «поздно спохватился»
 
 
 def _drift(state: State, data: dict) -> None:
@@ -669,7 +823,9 @@ def _drift(state: State, data: dict) -> None:
     for gid, g in state.groups.items():
         st = data["groups"][gid]["start"]
         ap = sum(stance(data, gid, pid) * pos * sal(data, gid, pid) for pid, pos in state.positions.items())
-        ar = sum(stance(data, gid, pid) * pos * sal(data, gid, pid) for pid, pos in state.rival_positions.items())
+        stolen = state.rival_memory.get("stolen", [])
+        ar = sum(stance(data, gid, pid) * pos * sal(data, gid, pid) * (STOLEN_CREDIT if pid in stolen else 1.0)
+                 for pid, pos in state.rival_positions.items())
         pol = sum(stance(data, gid, pid) * pos * sal(data, gid, pid) for pid, pos in state.policies.items())
         g.support_player = clamp(g.support_player + float(t["drift_k"]) * ap * (g.trust / 50.0))
         g.support_rival = clamp(g.support_rival + float(t["drift_k"]) * ar)
@@ -679,13 +835,14 @@ def _drift(state: State, data: dict) -> None:
             g.support_player = clamp(g.support_player + 0.5 * pol)
 
 
-def election(state: State, data: dict, rng: random.Random) -> dict:
+def election(state: State, data: dict, rng: Optional[random.Random]) -> dict:
+    """rng=None — прогноз без шума (для интерфейса и ИИ соперника)."""
     tv = float(data["tuning"]["trust_vote_base"])
-    noise = float(data["tuning"]["turnout_noise"])
+    noise = float(data["tuning"]["turnout_noise"]) if rng is not None else 0.0
     rows, pv, rv = [], 0.0, 0.0
     for gid in sorted(state.groups):
         g, gd = state.groups[gid], data["groups"][gid]
-        turnout = clamp(float(gd["turnout"]) + rng.uniform(-noise, noise), 0.0, 1.0)
+        turnout = clamp(float(gd["turnout"]) + (rng.uniform(-noise, noise) if rng else 0.0), 0.0, 1.0)
         voters = gd["size"] * turnout
         ep = g.support_player * (tv + g.trust / 100.0)
         er = g.support_rival
@@ -700,6 +857,8 @@ def election(state: State, data: dict, rng: random.Random) -> dict:
 def end_week(state: State, data: dict) -> dict:
     """Ход мира: соперник, сроки обещаний, дрейф, деньги, газеты, выборы. Затем новая неделя."""
     from . import press  # локальный импорт: press зависит от engine
+    if state.dead:
+        raise RuleError("кандидат погиб — игра окончена")
     rng = week_rng(state, 1000)
     start = len(state.facts)
     _rival_turn(state, data, rng)
@@ -710,8 +869,9 @@ def end_week(state: State, data: dict) -> dict:
     avg = sum(g.support_player for g in state.groups.values()) / len(state.groups)
     income = int(round(float(data["economy"]["income_base"]) + float(data["economy"]["income_per_support"]) * avg))
     state.money += income
+    _threat_phase(state, data, rng)
     result = None
-    if state.week >= state.next_election_week:
+    if not state.dead and state.week >= state.next_election_week:
         result = election(state, data, rng)
         state.elections.append(result)
         state.role = "мэр" if result["won"] else "кандидат"
@@ -722,8 +882,10 @@ def end_week(state: State, data: dict) -> dict:
     articles = press.write_week(state, data, week_facts, rng)
     report = {"week": state.week, "income": income, "world_facts": state.facts[start:], "articles": articles,
               "election": result}
+    report["dead"] = state.dead
     state.week += 1
-    state.actions_left = data["meta"]["actions_per_week"]
+    state.actions_left = 0 if state.dead else (data["meta"]["actions_per_week"]
+                                               - (1 if state.week <= state.injured_until else 0))
     state.week_cards = []
     state.week_seeds.append(_entropy_seed() if state.determinism_policy == "F" else 0)
     del state.week_seeds[:-200]

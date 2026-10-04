@@ -12,6 +12,8 @@ from gorod import parser as P  # noqa: E402
 from gorod.engine import Card  # noqa: E402
 
 DATA = E.load_data()
+_SEEDS = iter(range(10 ** 6, 10 ** 7))
+E._entropy_seed = lambda: next(_SEEDS)  # тесты не зависят от системной энтропии
 SK = {"charm": 30, "eloquence": 30, "cunning": 30}
 
 

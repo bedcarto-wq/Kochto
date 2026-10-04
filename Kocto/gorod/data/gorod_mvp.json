@@ -1,7 +1,7 @@
 {
- "schema_version": 1,
+ "schema_version": 2,
  "meta": {
-  "title": "Кочто — Город помнит (MVP)",
+  "title": "Кочто — Город помнит (MVP 2)",
   "election_week": 12,
   "election_period_weeks": 12,
   "actions_per_week": 3,
@@ -24,7 +24,8 @@
   "align_k": 6.0,
   "broken_mistrust_mult": 0.5,
   "trust_vote_base": 0.5,
-  "turnout_noise": 0.03
+  "turnout_noise": 0.03,
+  "meeting_fatigue": 0.75
  },
  "skills": {
   "charm": {
@@ -91,11 +92,34 @@
    "requires": [
     "paper"
    ]
+  },
+  "security": {
+   "name": "Нанять охрану",
+   "skill": "cunning",
+   "difficulty": 30,
+   "cost": 300,
+   "requires": [],
+   "max_level": 3,
+   "upkeep_per_level": 40,
+   "threat_cut": 5
+  },
+  "publicize": {
+   "name": "Заявить об угрозах публично",
+   "skill": "eloquence",
+   "difficulty": 40,
+   "cost": 0,
+   "requires": [],
+   "threat_cut": 15,
+   "min_threat": 20,
+   "trust_gain": 2,
+   "panic_trust": -3
   }
  },
  "action_priority": [
   "promise",
   "initiative",
+  "publicize",
+  "security",
   "interview",
   "meeting",
   "statement"
@@ -217,7 +241,11 @@
     "торговц",
     "лавочник",
     "коммерсант",
-    "фермер"
+    "фермер",
+    "рынок",
+    "рынк",
+    "рыноч",
+    "продавц"
    ],
    "voices": {
     "pleased": [
@@ -250,7 +278,14 @@
     "завод",
     "цех",
     "производств"
-   ]
+   ],
+   "enemy": {
+    "-1": {
+     "enemy": "plant_owner",
+     "threat": 30
+    },
+    "1": null
+   }
   },
   "tariff_freeze": {
    "council_difficulty": 10,
@@ -271,7 +306,14 @@
     "коммунал",
     "квартплат",
     "квитанц"
-   ]
+   ],
+   "enemy": {
+    "1": {
+     "enemy": "utility_company",
+     "threat": 15
+    },
+    "-1": null
+   }
   },
   "trade_levy": {
    "council_difficulty": 0,
@@ -293,7 +335,14 @@
     "торговл",
     "ямы",
     "ремонт"
-   ]
+   ],
+   "enemy": {
+    "1": {
+     "enemy": "market_bosses",
+     "threat": 22
+    },
+    "-1": null
+   }
   }
  },
  "rival": {
@@ -311,11 +360,17 @@
    "tariff_freeze": -1,
    "trade_levy": -1
   },
-  "meeting_gain": 6,
+  "meeting_gain": 5,
   "attack_trust": -6,
   "attack_support": -3,
   "attack_memory_weeks": 4,
-  "attack_chance": 0.7
+  "attack_chance": 0.7,
+  "ruthlessness": 0.6,
+  "dirty_after_week": 6,
+  "compromat_trust": -6,
+  "threat_push": 15,
+  "steal_cost_support": -5,
+  "plan_horizon": 6
  },
  "npcs": {
   "speaker": {
@@ -413,6 +468,20 @@
     "журналист",
     "корреспондент",
     "редакц"
+   ],
+   "security": [
+    "охран",
+    "телохран",
+    "безопасн",
+    "защит",
+    "чоп"
+   ],
+   "publicize": [
+    "угроз",
+    "полиц",
+    "заявлени",
+    "шантаж",
+    "запуг"
    ]
   },
   "negative": [
@@ -477,5 +546,53 @@
    "pos": "против {prop_rod}",
    "goal": "не допустить {prop_rod}"
   }
+ },
+ "enemies": {
+  "plant_owner": {
+   "forms": {
+    "im": "владелец завода",
+    "rod": "владельца завода",
+    "dat": "владельцу завода"
+   }
+  },
+  "market_bosses": {
+   "forms": {
+    "im": "хозяева рынка",
+    "rod": "хозяев рынка",
+    "dat": "хозяевам рынка"
+   }
+  },
+  "utility_company": {
+   "forms": {
+    "im": "управляющая компания",
+    "rod": "управляющей компании",
+    "dat": "управляющей компании"
+   }
+  },
+  "rival_circle": {
+   "forms": {
+    "im": "окружение мэра",
+    "rod": "окружения мэра",
+    "dat": "окружению мэра"
+   }
+  }
+ },
+ "threat": {
+  "start": 0,
+  "decay": 1.5,
+  "warn_levels": [
+   30,
+   60
+  ],
+  "attack_floor": 40,
+  "security_shield": 15,
+  "attack_scale": 0.5,
+  "death_below": 12,
+  "injury_below": 45,
+  "security_roll_bonus": 20,
+  "injury_weeks": 2,
+  "failed_attempt_cut": 10,
+  "sympathy_trust": 3,
+  "statement_threat": 0.4
  }
 }
