@@ -1,4 +1,4 @@
-"""Где лежат сохранения: рядом с Kochto.exe в сборке, в папке Kocto при запуске из исходников."""
+"""Где лежат сохранения: рядом с GorodPomnit.exe в сборке, в папке Kocto при запуске из исходников."""
 from __future__ import annotations
 
 import sys

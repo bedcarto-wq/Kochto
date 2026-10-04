@@ -1,4 +1,4 @@
-"""Точка входа для сборки Kochto-console.exe. Из исходников: python gorod_console.py"""
+"""Точка входа для сборки GorodPomnit-console.exe. Из исходников: python gorod_console.py"""
 import sys
 
 from gorod.console import main

@@ -1,7 +1,8 @@
 # Сборка Windows-версии «Город помнит» без установки Python.
+# Старая игра собирается отдельно (build-windows.yml) — к релизу прикрепятся оба архива.
 # Запуск: создать Release на GitHub (тег вида v0.5.0) — архив сам прикрепится к релизу.
-# Или вручную: Actions → «Сборка Windows» → Run workflow (архив будет в Artifacts).
-name: Сборка Windows
+# Или вручную: Actions → «Сборка Windows — Город помнит» → Run workflow (архив будет в Artifacts).
+name: Сборка Windows — Город помнит
 
 on:
   release:
@@ -33,30 +34,33 @@ jobs:
       - name: Сборка exe
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onedir --windowed --name Kochto `
+          python -m PyInstaller --noconfirm --clean --onedir --windowed --name GorodPomnit `
             --add-data "gorod/data;gorod/data" gorod_window.py
-          python -m PyInstaller --noconfirm --onedir --console --name Kochto-console `
+          python -m PyInstaller --noconfirm --onedir --console --name GorodPomnit-console `
             --hidden-import skills --add-data "gorod/data;gorod/data" gorod_console.py
           # консольная версия кладётся в ту же папку, общие библиотеки не дублируются
-          Copy-Item dist/Kochto-console/Kochto-console.exe dist/Kochto/
-          Copy-Item -Recurse -Force dist/Kochto-console/_internal/* dist/Kochto/_internal/
-          Copy-Item ИГРОКУ.txt dist/Kochto/
+          Copy-Item dist/GorodPomnit-console/GorodPomnit-console.exe dist/GorodPomnit/
+          Copy-Item -Recurse -Force dist/GorodPomnit-console/_internal/* dist/GorodPomnit/_internal/
+          Copy-Item ИГРОКУ.txt dist/GorodPomnit/
+          $files = Get-ChildItem -Recurse -File dist/GorodPomnit
+          if (-not ($files | Where-Object Name -like 'tcl*.dll')) { Write-Error "нет tcl/tk"; exit 1 }
+          if (-not ($files | Where-Object Name -eq 'train_phrases.json')) { Write-Error "нет данных игры"; exit 1 }
 
       - name: Проверка запуска консольной версии
         shell: pwsh
         run: |
-          "Тест`nм`n30 30 30`nвыход`n" | dist/Kochto/Kochto-console.exe
+          "Тест`nм`n30 30 30`nвыход`n" | dist/GorodPomnit/GorodPomnit-console.exe
 
       - name: Архив
         shell: pwsh
         run: |
           $tag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME -replace '[\\/]', '-' } else { 'dev' }
-          Compress-Archive -Path dist/Kochto -DestinationPath "Kochto-$tag-windows.zip"
-          "ZIP=Kochto-$tag-windows.zip" | Out-File -Append $env:GITHUB_ENV
+          Compress-Archive -Path dist/GorodPomnit -DestinationPath "GorodPomnit-$tag-windows.zip"
+          "ZIP=GorodPomnit-$tag-windows.zip" | Out-File -Append $env:GITHUB_ENV
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Kochto-windows
+          name: GorodPomnit-windows
           path: Kocto/${{ env.ZIP }}
 
       - name: Прикрепить к релизу
