@@ -9,10 +9,12 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+from . import __version__
 from . import engine as E
+from .paths import save_dir
 from .session import MODES, SLOT_RU, Session
 
-SAVE_DIR = Path(__file__).resolve().parent.parent / "gorod_saves"
+SAVE_DIR = save_dir()
 EXAMPLES = ("Примеры: «встретиться с пенсионерами», «пообещать заморозку тарифов за 4 недели», "
             "«дать интервью Голосу улицы против расширения завода», «нанять охрану»")
 
@@ -72,7 +74,7 @@ class NewGameDialog(tk.Toplevel):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Кочто — Город помнит")
+        self.title("Кочто — Город помнит " + __version__)
         self.geometry("1180x760")
         self.session = Session()
         self.slot_vars = {}

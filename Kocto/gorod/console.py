@@ -4,10 +4,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from . import __version__
 from . import engine as E
+from .paths import save_dir
 from .session import MODES, SLOT_RU, Session, ascii_chart
 
-SAVE_DIR = Path(__file__).resolve().parent.parent / "gorod_saves"
+SAVE_DIR = save_dir()
 HELP = """Пишите действие обычной фразой, например:
   встретиться с пенсионерами
   пообещать заморозку тарифов ЖКХ за 4 недели
@@ -142,7 +144,7 @@ def finish(ses: Session, view: dict) -> None:
 
 def main() -> None:
     ses = Session()
-    print(ses.data["meta"]["title"] + "\n" + HELP)
+    print(ses.data["meta"]["title"] + " · версия " + __version__ + "\n" + HELP)
     new_game(ses)
     print_status(ses)
     while True:
