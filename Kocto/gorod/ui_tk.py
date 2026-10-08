@@ -96,6 +96,9 @@ class App(P2PMixin, tk.Tk):
         self.slot_vars = {}
         self._build()
         self.init_p2p()
+        if not G.AVAILABLE:
+            self.graphic_error = G.IMPORT_ERROR
+            self.after(0, lambda: self.error_report(notify=False))
         self.after(100, self.new_game)
 
     # ---------- раскладка ----------
@@ -110,7 +113,7 @@ class App(P2PMixin, tk.Tk):
         statusrow.pack(fill="x", padx=10)
         self.net_label = ttk.Label(statusrow, text="Одиночная кампания", wraplength=1100)
         self.net_label.pack(anchor="w")
-        self.graphics_label = ttk.Label(statusrow, text="ИИ-иллюстрации · Pillow" if G.AVAILABLE else "Графика отключена: Pillow не установлен. Игра доступна в текстовом виде.", foreground="#666")
+        self.graphics_label = ttk.Label(statusrow, text="ИИ-иллюстрации · Pillow" if G.AVAILABLE else G.unavailable_message(), foreground="#666", wraplength=1050)
         self.graphics_label.pack(anchor="w")
         self.header = ttk.Label(statusrow, font=("Arial", 11, "bold"))
         self.header.pack(anchor="w", pady=4)
@@ -515,7 +518,7 @@ class App(P2PMixin, tk.Tk):
         c = self.city_canvas
         c.delete('all')
         if not G.AVAILABLE:
-            c.create_text(24, 24, anchor='nw', text='Текстовый режим — установите Pillow для графики.', width=450)
+            c.create_text(24, 24, anchor='nw', text=G.unavailable_message(), width=450)
             return
         try:
             w, h = max(c.winfo_width(), 100), max(c.winfo_height(), 80)
@@ -545,7 +548,7 @@ class App(P2PMixin, tk.Tk):
 
     def export_newspaper(self):
         if not G.AVAILABLE:
-            messagebox.showinfo('Газета', 'Для экспорта PNG установите Pillow.', parent=self)
+            messagebox.showinfo('Газета', G.unavailable_message(), parent=self)
             return
         path = filedialog.asksaveasfilename(defaultextension='.png', initialfile='Город-помнит-неделя-'+str(self.last_paper_week)+'.png', filetypes=[('PNG', '*.png')])
         if path:
@@ -555,7 +558,7 @@ class App(P2PMixin, tk.Tk):
             except (E.DataError, OSError) as exc:
                 messagebox.showerror('Газета', str(exc), parent=self)
 
-    def error_report(self, error=None):
+    def error_report(self, error=None, notify=True):
         SAVE_DIR.mkdir(exist_ok=True)
         path = SAVE_DIR / ('error-'+datetime.now().strftime('%Y%m%d-%H%M%S')+'.txt')
         # No shared code, IP, credentials or campaign text in a diagnostic report.
@@ -563,9 +566,10 @@ class App(P2PMixin, tk.Tk):
         report = {'version': __version__, 'python': platform.python_version(), 'os': platform.platform(),
                   'pillow': G.AVAILABLE, 'week': state.week if state else None,
                   'network': bool(self.link), 'network_disconnected': self.net_disconnected,
-                  'graphics_error': self.graphic_error, 'error': error}
+                  'graphics_error': self.graphic_error, 'error': error, 'graphics_diagnostic': G.diagnostic()}
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
-        messagebox.showinfo('Отчёт об ошибке', 'Сохранён файл для отправки разработчику:\n'+str(path), parent=self)
+        if notify:
+            messagebox.showinfo('Отчёт об ошибке', 'Сохранён файл для отправки разработчику:\n'+str(path), parent=self)
 
     def report_callback_exception(self, exc_type, exc_value, tb):
         details = ''.join(traceback.format_exception(exc_type, exc_value, tb))
