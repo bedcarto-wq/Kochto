@@ -1,0 +1,46 @@
+{
+  "train_examples": 317,
+  "test_examples": 37,
+  "correct": 33,
+  "accuracy": 0.8918918918918919,
+  "epochs": 100,
+  "seed": 751,
+  "vocab": 2048,
+  "hidden": 24,
+  "train_digest": "7163c0d2509a06bcff020993b56883d8e6b1fc9b06973c277acfaf8627c3e078",
+  "mistakes": [
+    {
+      "text": "Я готов прийти к проходной в семь утра и ответить на любые вопросы",
+      "expected": "meeting",
+      "predicted": "interview"
+    },
+    {
+      "text": "Я поддерживаю заморозку квартплаты для всех",
+      "expected": "statement",
+      "predicted": "promise"
+    },
+    {
+      "text": "Мы должны поддержать завод, а не душить его",
+      "expected": "statement",
+      "predicted": "promise"
+    },
+    {
+      "text": "Я не поддерживаю сбор с торговли в нынешнем виде",
+      "expected": "statement",
+      "predicted": "promise"
+    }
+  ],
+  "independent_check": {
+    "examples": 27,
+    "correct": 26,
+    "accuracy": 0.9629629629629629,
+    "mistakes": [
+      {
+        "text": "Соглашаюсь на договор с председателем",
+        "expected": "accept_deal",
+        "predicted": "negotiate"
+      }
+    ]
+  },
+  "model_digest": "1588b339fd7c8a5a492f049cf0f8e5dead94cc58170442427805fef68ab60e9a"
+}

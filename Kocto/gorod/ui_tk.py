@@ -14,6 +14,7 @@ from . import engine as E
 from .paths import save_dir
 from .session import MODES, SLOT_RU, Session
 from .ui_p2p import P2PMixin
+from .shortcuts import ShortcutStore, normalize_clipboard
 from . import graphics as G
 import json
 import platform
@@ -94,7 +95,10 @@ class App(P2PMixin, tk.Tk):
         self.tk.call("tk", "scaling", 1.33333)
         self.session = Session()
         self.slot_vars = {}
+        self.shortcuts = ShortcutStore(SAVE_DIR / 'my_actions.json', self.session.data['intents']['max_text'])
         self._build()
+        if self.shortcuts.load_error:
+            self.after(0, lambda: messagebox.showwarning('Мои действия', self.shortcuts.load_error, parent=self))
         self.init_p2p()
         if not G.AVAILABLE:
             self.graphic_error = G.IMPORT_ERROR
@@ -125,7 +129,7 @@ class App(P2PMixin, tk.Tk):
         body.add(left, weight=1)
         body.add(right, weight=2)
 
-        self.groups = ttk.Treeview(left, columns=("p", "r", "t"), height=4)
+        self.groups = ttk.Treeview(left, columns=("p", "r", "t"), height=3)
         self.groups.heading("#0", text="Группа")
         rival = self.session.data["rival"]["forms"]["im"]
         for c, t in (("p", "Вы"), ("r", rival), ("t", "Доверие")):
@@ -137,7 +141,7 @@ class App(P2PMixin, tk.Tk):
         self.threat = ttk.Label(left, wraplength=400)
         self.threat.pack(anchor="w", pady=2)
         ttk.Label(left, text="Позиции", font=("Arial", 10, "bold")).pack(anchor="w", pady=(8, 0))
-        self.positions = tk.Text(left, height=6, wrap="word")
+        self.positions = tk.Text(left, height=3, wrap="word")
         self.positions.pack(fill="x")
         ttk.Label(left, text="Обещания и договоры", font=("Arial", 10, "bold")).pack(anchor="w", pady=(8, 0))
         promise_frame = ttk.Frame(left)
@@ -164,7 +168,9 @@ class App(P2PMixin, tk.Tk):
             label.pack()
             ttk.Label(panel, text=name, anchor="center", wraplength=120).pack(fill="x")
             self.portrait_widgets.append(label)
-        ttk.Label(self.city_frame, text="Условный вид города · персонажи вымышлены · показатели групп слева", wraplength=560).pack(side="bottom", pady=4, before=self.portrait_row)
+        self.city_caption = ttk.Label(self.city_frame, text="Условный вид города · персонажи вымышлены · показатели групп слева", wraplength=560)
+        self.city_caption.pack(side='bottom',fill='x',padx=8,pady=4,before=self.portrait_row)
+        self.city_frame.bind('<Configure>',lambda e:self.city_caption.configure(wraplength=max(100,e.width-24)))
         self.paper_frame = ttk.Frame(tabs)
         ttk.Button(self.paper_frame, text="Сохранить выпуск в PNG", command=self.export_newspaper).pack(anchor="e", padx=8, pady=4)
         scroll = ttk.Scrollbar(self.paper_frame, orient="vertical")
@@ -203,6 +209,12 @@ class App(P2PMixin, tk.Tk):
         self.entry = ttk.Entry(self.text_row, font=("Arial", 12))
         self.entry.pack(side="left", fill="x", expand=True)
         self.entry.bind("<Return>", lambda e: self.understand())
+        self.entry.bind('<<Paste>>', self.paste_action)
+        self.entry.bind('<Shift-Insert>', self.paste_action)
+        self.entry.bind('<Control-KeyPress>', self._clipboard_key)
+        self.entry.bind('<Button-3>', self._input_menu)
+        self.entry.bind('<KeyRelease>', self._input_changed)
+        ttk.Button(self.text_row, text='Вставить', command=self.paste_action).pack(side='left', padx=2)
         ttk.Button(self.text_row, text="Понять", command=self.understand).pack(side="left", padx=4)
         self.card_row = ttk.Frame(bottom)
         ttk.Label(self.card_row, text="Действие:").pack(side="left")
@@ -210,20 +222,154 @@ class App(P2PMixin, tk.Tk):
                                         values=[n for _, n in self.session.actions()])
         self.card_action.pack(side="left", padx=4)
         self.card_action.bind("<<ComboboxSelected>>", lambda e: self.manual())
-        self.week_btn = ttk.Button(bottom, text="Завершить неделю", command=self.end_week)
-        self.week_btn.pack(anchor="e")
+        quick = ttk.Frame(bottom)
+        quick.pack(fill='x', pady=2)
+        ttk.Label(quick, text='Готовые действия:').pack(side='left')
+        self.quick_action = ttk.Combobox(quick, state='readonly', width=28)
+        self.quick_action.pack(side='left', padx=4)
+        ttk.Button(quick, text='Подготовить', command=self.prepare_quick).pack(side='left', padx=2)
+        ttk.Button(quick, text='+ Моё действие', command=self.edit_shortcut).pack(side='left', padx=2)
+        ttk.Button(quick, text='Изменить / удалить', command=self.manage_shortcut).pack(side='left', padx=2)
+        self.custom_buttons = ttk.Frame(bottom)
+        self.custom_canvas = tk.Canvas(self.custom_buttons, height=30, highlightthickness=0)
+        self.custom_canvas.pack(fill='x')
+        self.custom_inner = ttk.Frame(self.custom_canvas)
+        self.custom_canvas.create_window(0,0,anchor='nw',window=self.custom_inner)
+        self.custom_scroll = ttk.Scrollbar(self.custom_buttons, orient='horizontal', command=self.custom_canvas.xview)
+        self.custom_canvas.configure(xscrollcommand=self.custom_scroll.set)
+        self.custom_inner.bind('<Configure>', lambda e: self._shortcut_scroll())
+        self.custom_canvas.bind('<Configure>', lambda e: self._shortcut_scroll())
+        self.refresh_shortcuts()
+        self.week_btn = ttk.Button(quick, text="Завершить неделю", command=self.end_week)
+        self.week_btn.pack(side="right", padx=2)
         self.preview = ttk.LabelFrame(bottom, text="Понято как")
         self.preview.pack(fill="x", pady=4)
         self.summary = ttk.Label(self.preview, wraplength=1100, justify="left")
         self.summary.pack(anchor="w", padx=6)
         self.slots = ttk.Frame(self.preview)
         self.slots.pack(anchor="w", padx=6)
-        ttk.Button(self.preview, text="Объяснить разбор ИИ", command=self.explain_intent).pack(anchor="e", padx=6)
         btns = ttk.Frame(self.preview)
-        btns.pack(anchor="w", padx=6, pady=4)
+        btns.pack(fill="x", padx=6, pady=4)
+        ttk.Button(btns, text="Объяснить разбор ИИ", command=self.explain_intent).pack(side="right")
         self.do_btn = ttk.Button(btns, text="Выполнить", command=self.confirm, state="disabled")
         self.do_btn.pack(side="left")
         ttk.Button(btns, text="Отмена", command=self.cancel).pack(side="left", padx=4)
+
+    def _input_changed(self, event=None):
+        if self.session.pending is not None and self.entry.get().strip() != self.session.text.strip():
+            self.cancel()
+
+    def _clipboard_key(self, event):
+        # Physical V on Windows also works with the Russian keyboard layout.
+        if event.keysym.lower() in ('v', 'м', 'cyrillic_em') or (self.tk.call('tk','windowingsystem')=='win32' and event.keycode==86):
+            return self.paste_action(event)
+
+    def paste_action(self, event=None):
+        try:
+            text = normalize_clipboard(self.clipboard_get(), self.session.data['intents']['max_text'])
+            try:
+                first, last = self.entry.index('sel.first'), self.entry.index('sel.last')
+            except tk.TclError:
+                first = last = self.entry.index('insert')
+            old = self.entry.get()
+            if len(old[:first]+text+old[last:]) > self.session.data['intents']['max_text']:
+                raise E.RuleError('После вставки фраза слишком длинная')
+            self.entry.delete(first, last)
+            self.entry.insert(first, text)
+            self.entry.icursor(first+len(text))
+            self.entry.focus_set()
+            # A previously understood command must not survive editing its input.
+            self.cancel()
+        except (tk.TclError, E.RuleError) as exc:
+            messagebox.showwarning('Буфер обмена', str(exc) if isinstance(exc,E.RuleError) else 'В буфере нет доступного текста', parent=self)
+        return 'break'
+
+    def _input_menu(self, event):
+        menu = tk.Menu(self, tearoff=False)
+        menu.add_command(label='Вставить', command=self.paste_action)
+        menu.add_command(label='Копировать', command=lambda: self.entry.event_generate('<<Copy>>'))
+        menu.add_command(label='Выделить всё', command=lambda: self.entry.selection_range(0,'end'))
+        try: menu.tk_popup(event.x_root, event.y_root)
+        finally: menu.grab_release()
+        return 'break'
+
+    def _shortcut_scroll(self):
+        self.custom_canvas.configure(scrollregion=self.custom_canvas.bbox('all'))
+        if self.custom_inner.winfo_reqwidth() > self.custom_canvas.winfo_width():
+            self.custom_scroll.pack(fill='x')
+        else:
+            self.custom_scroll.pack_forget()
+
+    def refresh_shortcuts(self, selected=None):
+        self.quick_options = [('builtin',k,n) for k,n in self.session.actions()] + [('custom',x['id'],'Моё: '+x['name']) for x in self.shortcuts.items]
+        self.quick_action.configure(values=[x[2] for x in self.quick_options])
+        index = next((i for i,x in enumerate(self.quick_options) if x[1]==selected),0)
+        self.quick_action.current(index)
+        for w in self.custom_inner.winfo_children(): w.destroy()
+        for item in self.shortcuts.items:
+            ttk.Button(self.custom_inner, text=item['name'], command=lambda k=item['id']: self.prepare_custom(k)).pack(side='left',padx=2)
+        if self.shortcuts.items:
+            self.custom_buttons.pack(fill='x',pady=2,after=self.quick_action.master)
+        else:
+            self.custom_buttons.pack_forget()
+
+    def prepare_custom(self, key):
+        if self.session.state is None or self.session.over: return
+        item=next((x for x in self.shortcuts.items if x['id']==key),None)
+        if item is None: return
+        self.mode.set('text');self.switch_mode()
+        self.entry.delete(0,'end');self.entry.insert(0,item['text'])
+        self.understand()  # preparation only, never confirm/execute
+
+    def prepare_quick(self):
+        if self.session.state is None or self.session.over: return
+        index=self.quick_action.current()
+        if index<0: return
+        kind,key,_=self.quick_options[index]
+        if kind=='builtin':
+            self.mode.set('card');self.switch_mode()
+            ids=[k for k,_ in self.session.actions()]
+            self.card_action.current(ids.index(key))
+            self.manual()
+        else:
+            self.prepare_custom(key)
+
+    def edit_shortcut(self, item=None):
+        dlg=tk.Toplevel(self)
+        dlg.title('Моё действие — шаблон фразы')
+        dlg.geometry('600x330');dlg.minsize(500,300)
+        ttk.Label(dlg,text='Название кнопки (до 32 символов):').pack(anchor='w',padx=12,pady=(12,2))
+        name=ttk.Entry(dlg);name.pack(fill='x',padx=12)
+        if item: name.insert(0,item['name'])
+        ttk.Label(dlg,text='Фраза или план действий:').pack(anchor='w',padx=12,pady=(8,2))
+        text=tk.Text(dlg,height=5,wrap='word',font=('Arial',11));text.pack(fill='both',expand=True,padx=12)
+        text.insert('1.0',item['text'] if item else self.entry.get())
+        ttk.Label(dlg,text='Это ваш шаблон, не новая игровая механика. Кнопка готовит разбор;\nвыполнение — только после проверки и вашего подтверждения.',wraplength=560).pack(anchor='w',padx=12,pady=6)
+        def save():
+            try:
+                value=normalize_clipboard(text.get('1.0','end-1c'),self.session.data['intents']['max_text'])
+                saved=self.shortcuts.put(name.get(),value,item['id'] if item else None)
+            except (E.DataError,E.RuleError) as exc:
+                messagebox.showwarning('Моё действие',str(exc),parent=dlg);return
+            self.refresh_shortcuts(saved['id']);dlg.destroy()
+        buttons=ttk.Frame(dlg);buttons.pack(fill='x',padx=12,pady=8)
+        ttk.Button(buttons,text='Сохранить кнопку',command=save).pack(side='left')
+        ttk.Button(buttons,text='Отмена',command=dlg.destroy).pack(side='right')
+        if item:
+            def remove():
+                if not messagebox.askyesno('Моё действие','Удалить кнопку «'+item['name']+'»?',parent=dlg): return
+                try: self.shortcuts.delete(item['id'])
+                except E.DataError as exc: messagebox.showwarning('Моё действие',str(exc),parent=dlg);return
+                self.refresh_shortcuts();dlg.destroy()
+            ttk.Button(buttons,text='Удалить',command=remove).pack(side='left',padx=8)
+        dlg.grab_set();name.focus_set()
+
+    def manage_shortcut(self):
+        index=self.quick_action.current()
+        if index<0 or self.quick_options[index][0]!='custom':
+            messagebox.showinfo('Мои действия','Выберите «Моё: …» в списке готовых действий.',parent=self);return
+        key=self.quick_options[index][1]
+        self.edit_shortcut(next(x for x in self.shortcuts.items if x['id']==key))
 
     # ---------- действия ----------
     def new_game(self):
@@ -429,6 +575,8 @@ class App(P2PMixin, tk.Tk):
                 if node.get('card'):
                     lines.append('Операция: '+E.describe_card(self.session.data, E.Card(**node['card'])))
                 lines.append('Источник разбора: '+node.get('source',''))
+                if node.get('source') == 'ИИ':
+                    lines.append('Классификатор: локальная нейросеть. Оценка класса — '+str(round(node.get('confidence',0)*100))+'%, не шанс успеха хода.')
                 if node.get('condition'):
                     lines.append('Проверяемое условие: '+node['condition']['text'])
                 for key in node.get('ambiguities', {}):

@@ -22,6 +22,7 @@ from .session import Session, fact_line, election_chart
 FORMAT = 1
 LEGACY_RULES = "93cd66734f2f8312721ba210b3f355e97f26fe1af04b234be449dd45fa424821"
 
+LEGACY_070 = "78d268cee1995a5fdf94d5550820a7425ae380fbc27183f582f8927ffab1d5d8"
 
 def fingerprint(data):
     clean = {k: v for k, v in data.items() if not k.startswith('_')}
@@ -295,7 +296,7 @@ class Match:
     @classmethod
     def restore(cls, data, obj):
         try:
-            if obj['format'] != FORMAT or obj['rules'] not in (fingerprint(data), LEGACY_RULES):
+            if obj['format'] != FORMAT or obj['rules'] not in (fingerprint(data), LEGACY_RULES, LEGACY_070):
                 raise E.DataError('P2P: несовместимая версия правил / сохранения')
             if (not isinstance(obj['states'], list) or len(obj['states']) != 2
                     or type(obj['revision']) is not int or obj['revision'] < 0

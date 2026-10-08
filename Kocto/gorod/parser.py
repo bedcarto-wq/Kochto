@@ -12,7 +12,8 @@ from typing import List, Optional, Tuple
 from .engine import Card
 from .nlu import fuzzy_prefix
 
-AI_MIN_CONFIDENCE = 0.45
+AI_MIN_CONFIDENCE = 0.60
+AI_MIN_MARGIN = 0.20
 
 SLOT_RU = {"group": "группа", "proposal": "вопрос", "paper": "газета"}
 WORD = re.compile(r"[а-яa-z0-9]+")
@@ -151,10 +152,12 @@ def parse(data: dict, text: str, learned=None) -> Parse:
         action = max(specific, key=lambda a: (probs or {}).get(a, 0.0)) if probs else specific[0]
         conf = (probs or {}).get(action, 0.0)
         acts = [action] + [a for a in acts if a != action]
-    elif probs and max(probs.values()) >= AI_MIN_CONFIDENCE:
+    elif (probs and max(probs.values()) >= AI_MIN_CONFIDENCE
+          and sorted(probs.values(), reverse=True)[0] - sorted(probs.values(), reverse=True)[1] >= AI_MIN_MARGIN
+          and (not hasattr(m, 'supported') or m.supported(toks))):
         action = max(probs, key=lambda a: (probs[a], a))
         source, conf, guessed = "ИИ", probs[action], True
-        notes.append("понято по смыслу (ИИ, уверенность " + str(round(conf * 100)) + "%): "
+        notes.append("понято по смыслу (локальная нейросеть, оценка " + str(round(conf * 100)) + "%): "
                      + data["actions"][action]["name"])
     elif by_kind["paper"]:
         action, guessed = "interview", True

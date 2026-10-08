@@ -61,8 +61,11 @@ def load_data(data_dir: Optional[Path] = None) -> dict:
     data["intents"] = load_json(root / "intents.json")
     corpus = load_json(root / "train_phrases.json")
     validate(data)
-    from .nlu import train
-    data["_nlu"] = train(corpus, list(data["actions"]))
+    from . import neural
+    record = load_json(root / 'neural_model.json')
+    data['_nlu'] = neural.load(record, corpus, list(data['actions']))
+    # A changed packaged model changes the network handshake, never silently.
+    data['neural_rules'] = {'schema': neural.SCHEMA, 'model_digest': neural.digest(record)}
     return data
 
 

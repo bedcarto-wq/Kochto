@@ -12,6 +12,8 @@ def run():
     from .p2p import Link, new_code
     from .multiplayer import fingerprint
     import time
+    import tempfile
+    from .shortcuts import ShortcutStore
     # Skip interactive candidate dialog but instantiate the real layout.
     original = App.new_game
     App.new_game = lambda self: None
@@ -29,6 +31,24 @@ def run():
         assert G.portrait(0, 80).width == 80
         paper = G.newspaper([], 0)
         assert paper.height > 0
+        assert app.session.data['_nlu'].__class__.__name__ == 'NeuralClassifier'
+        state_before = app.session.state.actions_left
+        app.entry.delete(0, 'end')
+        app.clipboard_clear();app.clipboard_append('посидеть с бабушками на лавочке')
+        app.entry.event_generate('<<Paste>>');app.update()
+        assert app.entry.get() == 'посидеть с бабушками на лавочке'
+        app.understand();assert app.session.view()['source'] == 'ИИ' and app.session.view()['ready']
+        app.entry.selection_range(0,'end');app.clipboard_clear();app.clipboard_append('нанять охрану')
+        app.entry.focus_force();app.update();app.entry.event_generate('<Control-KeyPress-v>');app.update()
+        assert app.entry.get() == 'нанять охрану' and app.session.pending is None
+        assert app.session.state.actions_left == state_before
+        with tempfile.TemporaryDirectory() as tmp:
+            app.shortcuts = ShortcutStore(Path(tmp)/'my_actions.json')
+            shortcut = app.shortcuts.put('Штаб и охрана', 'Встретиться с рабочими; затем нанять охрану')
+            app.refresh_shortcuts(shortcut['id'])
+            app.custom_inner.winfo_children()[0].invoke();app.update()
+            assert len(app.session.intent.steps)==2 and app.session.state.actions_left==state_before
+            assert ShortcutStore(Path(tmp)/'my_actions.json').items[0]['name']=='Штаб и охрана'
         semantic = app.session.understand('Встретиться с рабочими; затем нанять охрану')
         assert semantic['ready'] and len(semantic['steps']) == 2
         app.session.confirm()
@@ -50,7 +70,7 @@ def run():
         snapshot = guest.events.get(timeout=5)['match']
         assert Match.restore(app.base_data, snapshot).states[1].week == 2
         target = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path.cwd()
-        (target/'ui-smoke-ok.json').write_text(json.dumps({'ui': True, 'pillow': True, 'p2p': True}), encoding='utf-8')
+        (target/'ui-smoke-ok.json').write_text(json.dumps({'ui': True, 'pillow': True, 'p2p': True, 'neural': True, 'clipboard': True, 'shortcuts': True}), encoding='utf-8')
         return 0
     except Exception:
         import traceback
