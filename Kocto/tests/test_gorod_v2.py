@@ -87,7 +87,10 @@ class NluTests(unittest.TestCase):
     def test_bad_corpus_is_data_error(self):
         with tempfile.TemporaryDirectory() as tmp:
             for f in E.DATA_DIR.iterdir():
-                shutil.copy(f, tmp)
+                if f.is_dir():
+                    shutil.copytree(f, Path(tmp) / f.name)
+                else:
+                    shutil.copy(f, tmp)
             (Path(tmp) / "train_phrases.json").write_text(
                 json.dumps({"phrases": [{"text": "x", "action": "dance"}]}), encoding="utf-8")
             with self.assertRaises(E.DataError):

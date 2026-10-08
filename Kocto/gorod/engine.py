@@ -289,6 +289,7 @@ class GroupState:
     support_player: float
     support_rival: float
     trust: float
+    rival_trust: Optional[float] = None  # PvP; None preserves the solo rules
 
 
 @dataclass
@@ -895,7 +896,7 @@ def election(state: State, data: dict, rng: Optional[random.Random]) -> dict:
         turnout = clamp(float(gd["turnout"]) + (rng.uniform(-noise, noise) if rng else 0.0), 0.0, 1.0)
         voters = gd["size"] * turnout
         ep = g.support_player * (tv + g.trust / 100.0)
-        er = g.support_rival
+        er = g.support_rival * (tv + g.rival_trust / 100.0) if g.rival_trust is not None else g.support_rival
         share = ep / (ep + er) if ep + er > 0 else 0.5
         rows.append({"group": gid, "voters": int(round(voters)), "share_player": round(share, 3),
                      "player": int(round(voters * share)), "rival": int(round(voters * (1 - share)))})
@@ -931,7 +932,8 @@ def council_vote(state: State, data: dict, rng: Optional[random.Random]) -> dict
             if lst["vote"] == "player":
                 w[lid] = g.support_player * (tv + g.trust / 100.0)
             elif lst["vote"] == "rival":
-                w[lid] = g.support_rival
+                w[lid] = (g.support_rival * (tv + g.rival_trust / 100.0)
+                          if g.rival_trust is not None else g.support_rival)
             else:
                 w[lid] = float(lst["base"][gid])
         tot = sum(w.values()) or 1.0

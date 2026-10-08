@@ -7,3 +7,11 @@ Kocto/saves/
 Kocto/data/nn/eval/
 Kocto/data/nn/memory/constructions.json
 Kocto/data/laws/custom_laws.json
+
+Kocto/gorod_saves/
+Kocto/gorod_settings.json
+Kocto/ui-smoke-*.json
+Kocto/ui-smoke-*.txt
+Kocto/build/
+Kocto/dist/
+*.spec
