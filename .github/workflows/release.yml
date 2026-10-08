@@ -37,7 +37,14 @@ jobs:
         run: python -m pip install pyinstaller==6.11.1 Pillow==11.1.0
 
       - name: Тесты
-        run: python -m unittest discover -s tests -p "test_gorod*.py"
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p "test_gorod*.py" 2>&1 | Tee-Object test-output.txt
+          if ($LASTEXITCODE -ne 0) {
+            $details = (Get-Content test-output.txt -Raw) -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+            Write-Output "::error::$details"
+            exit 1
+          }
 
       - name: Сборка exe
         shell: pwsh
@@ -64,7 +71,13 @@ jobs:
         shell: pwsh
         run: |
           $process = Start-Process dist/GorodPomnit/GorodPomnit.exe -ArgumentList "--smoke-test-ui" -PassThru -Wait
-          if ($process.ExitCode -ne 0) { Write-Error "оконная версия не запускается"; exit 1 }
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path dist/GorodPomnit/ui-smoke-error.txt) {
+              $details = (Get-Content dist/GorodPomnit/ui-smoke-error.txt -Raw) -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+              Write-Output "::error::$details"
+            }
+            Write-Error "оконная версия не запускается"; exit 1
+          }
           if (-not (Test-Path dist/GorodPomnit/ui-smoke-ok.json)) { Write-Error "нет результата проверки окна"; exit 1 }
           Remove-Item dist/GorodPomnit/ui-smoke-ok.json
 
