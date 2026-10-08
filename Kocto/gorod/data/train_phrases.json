@@ -1980,6 +1980,126 @@
    "action": "publicize",
    "split": "test",
    "source": "speech"
+  },
+  {
+   "text": "Переговоры с председателем о заморозке тарифов",
+   "action": "negotiate",
+   "split": "train"
+  },
+  {
+   "text": "Договориться с председателем о расширении завода",
+   "action": "negotiate",
+   "split": "train"
+  },
+  {
+   "text": "Обсудить с председателем сбор на ремонт дорог",
+   "action": "negotiate",
+   "split": "train"
+  },
+  {
+   "text": "Предложу председателю договорённость по тарифам",
+   "action": "negotiate",
+   "split": "train"
+  },
+  {
+   "text": "Хочу договориться с председателем совета",
+   "action": "negotiate",
+   "split": "train"
+  },
+  {
+   "text": "Поговорю с председателем о запрете расширения завода",
+   "action": "negotiate",
+   "split": "train"
+  },
+  {
+   "text": "Переговоры в совете о тарифах",
+   "action": "negotiate",
+   "split": "train"
+  },
+  {
+   "text": "Председатель, обсудим заморозку тарифов",
+   "action": "negotiate",
+   "split": "train"
+  },
+  {
+   "text": "Договориться о голосовании за завод",
+   "action": "negotiate",
+   "split": "train"
+  },
+  {
+   "text": "Предложить председателю план ремонта дорог",
+   "action": "negotiate",
+   "split": "train"
+  },
+  {
+   "text": "Переговоры с председателем за тарифы",
+   "action": "negotiate",
+   "split": "test"
+  },
+  {
+   "text": "Договориться с председателем против сбора",
+   "action": "negotiate",
+   "split": "test"
+  },
+  {
+   "text": "Принимаю предложение председателя",
+   "action": "accept_deal",
+   "split": "train"
+  },
+  {
+   "text": "Принять предложение председателя",
+   "action": "accept_deal",
+   "split": "train"
+  },
+  {
+   "text": "Соглашаюсь на предложение председателя",
+   "action": "accept_deal",
+   "split": "train"
+  },
+  {
+   "text": "Согласен на предложение председателя",
+   "action": "accept_deal",
+   "split": "train"
+  },
+  {
+   "text": "Принимаю условия председателя",
+   "action": "accept_deal",
+   "split": "train"
+  },
+  {
+   "text": "Согласна на предложение председателя",
+   "action": "accept_deal",
+   "split": "train"
+  },
+  {
+   "text": "Принять договорённость председателя",
+   "action": "accept_deal",
+   "split": "train"
+  },
+  {
+   "text": "Подтверждаю предложение председателя",
+   "action": "accept_deal",
+   "split": "train"
+  },
+  {
+   "text": "Согласен на условия председателя",
+   "action": "accept_deal",
+   "split": "train"
+  },
+  {
+   "text": "Согласна на условия председателя",
+   "action": "accept_deal",
+   "split": "train"
+  },
+  {
+   "text": "Принимаю предложение совета",
+   "action": "accept_deal",
+   "split": "test"
+  },
+  {
+   "text": "Принять предложение совета",
+   "action": "accept_deal",
+   "split": "test"
   }
  ],
  "note": "source=speech — фразы в стиле речей политиков, написаны для игры (не цитаты). split=test не идёт в обучение, только в проверку."

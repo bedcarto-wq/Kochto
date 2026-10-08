@@ -25,7 +25,7 @@ if G.AVAILABLE:
 
 SAVE_DIR = save_dir()
 EXAMPLES = ("Примеры: «встретиться с пенсионерами», «пообещать заморозку тарифов за 4 недели», "
-            "«дать интервью Голосу улицы против расширения завода», «нанять охрану»")
+            "«встретиться с рабочими; затем нанять охрану», «переговоры с председателем за заморозку тарифов»")
 
 
 class NewGameDialog(tk.Toplevel):
@@ -139,9 +139,14 @@ class App(P2PMixin, tk.Tk):
         ttk.Label(left, text="Позиции", font=("Arial", 10, "bold")).pack(anchor="w", pady=(8, 0))
         self.positions = tk.Text(left, height=6, wrap="word")
         self.positions.pack(fill="x")
-        ttk.Label(left, text="Обещания", font=("Arial", 10, "bold")).pack(anchor="w", pady=(8, 0))
-        self.promises = tk.Listbox(left, height=7)
-        self.promises.pack(fill="both", expand=True)
+        ttk.Label(left, text="Обещания и договоры", font=("Arial", 10, "bold")).pack(anchor="w", pady=(8, 0))
+        promise_frame = ttk.Frame(left)
+        promise_frame.pack(fill='both', expand=True)
+        promise_scroll = ttk.Scrollbar(promise_frame, orient='vertical')
+        promise_scroll.pack(side='right', fill='y')
+        self.promises = tk.Text(promise_frame, height=7, wrap='word', font=('Arial', 10), yscrollcommand=promise_scroll.set)
+        self.promises.pack(side='left', fill='both', expand=True)
+        promise_scroll.configure(command=self.promises.yview)
 
         tabs = ttk.Notebook(right)
         tabs.pack(fill="both", expand=True)
@@ -150,7 +155,7 @@ class App(P2PMixin, tk.Tk):
         self.city_canvas.pack(fill="both", expand=True)
         self.city_canvas.bind("<Configure>", lambda e: self.draw_city())
         self.portrait_row = ttk.Frame(self.city_frame)
-        self.portrait_row.pack(fill="x", pady=8)
+        self.portrait_row.pack(side="bottom", fill="x", pady=8, before=self.city_canvas)
         self.portrait_widgets = []
         for i, name in enumerate(("Председатель совета", "Редактор газеты", "Пенсионеры", "Рабочие")):
             panel = ttk.Frame(self.portrait_row)
@@ -159,7 +164,7 @@ class App(P2PMixin, tk.Tk):
             label.pack()
             ttk.Label(panel, text=name, anchor="center", wraplength=120).pack(fill="x")
             self.portrait_widgets.append(label)
-        ttk.Label(self.city_frame, text="Условный вид города · персонажи вымышлены · показатели групп слева", wraplength=560).pack(pady=4)
+        ttk.Label(self.city_frame, text="Условный вид города · персонажи вымышлены · показатели групп слева", wraplength=560).pack(side="bottom", pady=4, before=self.portrait_row)
         self.paper_frame = ttk.Frame(tabs)
         ttk.Button(self.paper_frame, text="Сохранить выпуск в PNG", command=self.export_newspaper).pack(anchor="e", padx=8, pady=4)
         scroll = ttk.Scrollbar(self.paper_frame, orient="vertical")
@@ -213,6 +218,7 @@ class App(P2PMixin, tk.Tk):
         self.summary.pack(anchor="w", padx=6)
         self.slots = ttk.Frame(self.preview)
         self.slots.pack(anchor="w", padx=6)
+        ttk.Button(self.preview, text="Объяснить разбор ИИ", command=self.explain_intent).pack(anchor="e", padx=6)
         btns = ttk.Frame(self.preview)
         btns.pack(anchor="w", padx=6, pady=4)
         self.do_btn = ttk.Button(btns, text="Выполнить", command=self.confirm, state="disabled")
@@ -358,8 +364,20 @@ class App(P2PMixin, tk.Tk):
         lines += ["· " + n for n in view["notes"]]
         lines += ["! " + w for w in view.get("warnings", [])]
         if view.get("ready"):
-            lines.append("Шанс " + str(view["chance"]) + "% · стоимость " + str(view["cost"]))
+            if view['action'] == 'accept_deal':
+                lines.append('Принятие условий без броска · стоимость '+str(view['cost']))
+            else:
+                label = 'Шанс выбранного шага сейчас ' if len(view.get('steps', []))>1 else 'Шанс '
+                lines.append(label+str(view['chance'])+'% · общая стоимость '+str(view['cost']))
+        if len(lines)>8:
+            lines = lines[:8]+['Полное объяснение — по кнопке «Объяснить разбор ИИ».']
         self.summary.configure(text="\n".join(lines))
+        if len(view.get('steps', []))>1:
+            ttk.Label(self.slots, text='Шаг:').pack(side='left')
+            step_box = ttk.Combobox(self.slots, state='readonly', width=8, values=list(range(1,len(view['steps'])+1)))
+            step_box.current(view['selected_step'])
+            step_box.pack(side='left', padx=4)
+            step_box.bind('<<ComboboxSelected>>', lambda e, b=step_box: self._show(self.session.select_step(b.current())))
         if view.get("ok"):
             names = [n for _, n in self.session.actions()]
             ids = [k for k, _ in self.session.actions()]
@@ -368,10 +386,10 @@ class App(P2PMixin, tk.Tk):
             act.current(ids.index(view["action"]))
             act.pack(side="left", padx=4)
             act.bind("<<ComboboxSelected>>", lambda e, b=act: self._show(self.session.set_action(ids[b.current()])))
-            if view["action"] == "promise":
+            if view["action"] in ("promise", "negotiate"):
                 ttk.Label(self.slots, text="срок, нед.:").pack(side="left")
-                dl = tk.IntVar(value=view["deadline"] or 4)
-                sp = ttk.Spinbox(self.slots, from_=1, to=self.session.data["actions"]["promise"]["max_deadline"],
+                dl = tk.IntVar(value=view["deadline"] or self.session.data["actions"][view["action"]]["default_deadline"])
+                sp = ttk.Spinbox(self.slots, from_=1, to=self.session.data["actions"][view["action"]]["max_deadline"],
                                  width=4, textvariable=dl,
                                  command=lambda v=dl: self._show(self.session.set_deadline(int(v.get()))))
                 sp.pack(side="left", padx=4)
@@ -382,6 +400,51 @@ class App(P2PMixin, tk.Tk):
             box.pack(side="left", padx=4)
             box.bind("<<ComboboxSelected>>", lambda e, s=slot, o=opts, b=box: self._pick(s, o[b.current()][0]))
         self.do_btn.configure(state="normal" if view.get("ready") and self.can_act() else "disabled")
+
+    def explain_intent(self):
+        graph = self.session.intent.record() if self.session.intent else None
+        if not graph and self.session.state and self.session.state.intent_history:
+            graph = self.session.state.intent_history[-1]
+        dlg = tk.Toplevel(self)
+        dlg.title('Почему ИИ так понял · структура намерения')
+        dlg.geometry('760x500')
+        tabs = ttk.Notebook(dlg)
+        tabs.pack(fill='both', expand=True)
+        readable = tk.Text(tabs, wrap='word', font=('Arial', 11))
+        raw = tk.Text(tabs, wrap='word')
+        tabs.add(readable, text='Объяснение')
+        tabs.add(raw, text='Техническая структура')
+        lines = []
+        if graph:
+            lines = ['Ваша фраза: '+graph['text'], '']
+            for reason in graph.get('blocked', []):
+                lines.append('Не исполняется: '+reason)
+            if self.session.intent:
+                lines += ['Проверка перед исполнением: '+x for x in self.session.view().get('warnings', [])]
+                lines.append('')
+            names = {'instruction':'команда','commitment':'обещание','offer':'предложение переговоров',
+                     'acceptance':'принятие условий','query':'вопрос','reported':'чужое высказывание','denied':'отрицание действия'}
+            for index, node in enumerate(graph.get('steps', []), 1):
+                lines += ['Шаг '+str(index)+': '+node['text'], 'Тип: '+names.get(node['speech_act'],node['speech_act'])]
+                if node.get('card'):
+                    lines.append('Операция: '+E.describe_card(self.session.data, E.Card(**node['card'])))
+                lines.append('Источник разбора: '+node.get('source',''))
+                if node.get('condition'):
+                    lines.append('Проверяемое условие: '+node['condition']['text'])
+                for key in node.get('ambiguities', {}):
+                    lines.append('Нужно уточнить: '+SLOT_RU.get(key,key))
+                for reason in node.get('blocked', []):
+                    lines.append('Не исполняется: '+reason)
+                for evidence in node.get('evidence', []):
+                    if evidence.get('source')=='игрок':
+                        lines.append('Ваше исправление: '+evidence['field']+' = '+str(evidence.get('value')))
+                lines.append('')
+            if graph.get('edges'):
+                lines.append('Порядок: шаги выполняются последовательно, каждый расходует одно действие.')
+        readable.insert('1.0', '\n'.join(lines) if graph else 'Пока нет смыслового разбора. Введите фразу или выполните действие.')
+        raw.insert('1.0', json.dumps(graph, ensure_ascii=False, indent=2) if graph else '{}')
+        for text in (readable, raw):
+            text.configure(state='disabled')
 
     def _pick(self, slot, value):
         self._show(self.session.set_slot(slot, value))
@@ -497,14 +560,16 @@ class App(P2PMixin, tk.Tk):
         f = st["forecast"]
         self.forecast.configure(text="Прогноз голосов: вы " + str(f["player"]) + " · соперник " + str(f["rival"]))
         self.threat.configure(text="Угроза: " + st["threat_label"] + " (" + str(st["threat"]) + ") · охрана: "
-                              + str(st["security"]), foreground="#b00" if st["threat"] >= 60 else "#000")
+                              + str(st["security"]) + " · доверие председателя: " + str(st["speaker_loyalty"]), foreground="#b00" if st["threat"] >= 60 else "#000")
         self.positions.delete("1.0", "end")
         mine = "; ".join(p + ": " + s for p, s in st["positions"]) or "не заявлены"
         his = "; ".join(p + ": " + s for p, s in st["rival_positions"]) or "—"
         self.positions.insert("end", "Вы — " + mine + "\n" + self.session.data["rival"]["forms"]["im"] + " — " + his)
-        self.promises.delete(0, "end")
-        for p in st["promises"]:
-            self.promises.insert("end", p)
+        self.promises.configure(state='normal')
+        self.promises.delete('1.0', 'end')
+        for p in st['promises']:
+            self.promises.insert('end', p+'\n\n')
+        self.promises.configure(state='disabled')
         self.draw_chart()
         self.draw_city()
         self.draw_newspaper()

@@ -16,7 +16,11 @@ HELP = """Пишите действие обычной фразой, напри�
   дать интервью «Голосу улицы» против расширения завода
   внести в совет сбор с торговли на ремонт дорог
   нанять охрану · заявить об угрозах
-Команды: статус · обещания · прогноз (диаграмма) · неделя (завершить неделю)
+  встретиться с рабочими; затем нанять охрану
+  переговоры с председателем за заморозку тарифов за 6 недель
+  принимаю предложение председателя
+План проверяется целиком; каждый шаг стоит одно действие.
+Команды: разбор (объяснение последней фразы) · статус · обещания · прогноз (диаграмма) · неделя (завершить неделю)
   режим текст | улучшатель | карточка — как вводить действия
   карточка — один раз собрать действие вручную · выгрузить фразы — выученные фразы в файл
   сохранить [имя] · загрузить [имя] · помощь · выход"""
@@ -110,6 +114,28 @@ def finish(ses: Session, view: dict) -> None:
             print("Отменено.")
             return
         view = ses.set_slot(slot, val)
+    for warning in view.get('warnings', []):
+        print('  ! '+warning)
+    if len(view.get('steps', []))>1 and not view['ready']:
+        unresolved = [i for i,x in enumerate(ses.intent.steps) if x.ambiguities or (x.card and E.missing_slots(ses.data,x.card))]
+        if not unresolved:
+            print('План заблокирован. Причины перечислены выше.'); return
+        index = choose('Какой шаг уточнить?', [(i,view['steps'][i]) for i in unresolved])
+        if index is None:
+            ses.cancel(); return
+        updated = ses.select_step(index)
+        act = choose('Подтвердите действие шага:', ses.actions())
+        if act is None:
+            ses.cancel(); return
+        return finish(ses, ses.set_action(act))
+    if not view['ready'] and ses.intent and 'action' in ses.intent.steps[ses.selected_step].ambiguities:
+        act = choose('Уточните действие:', ses.actions())
+        if act is None:
+            ses.cancel(); return
+        return finish(ses, ses.set_action(act))
+    if not view['ready']:
+        print('План пока нельзя выполнить. Уточните действие вручную либо переформулируйте фразу.')
+        return
     print("Понято как: " + view["summary"])
     for n in view["notes"]:
         print("  · " + n)
@@ -158,6 +184,10 @@ def main() -> None:
             print(HELP)
         elif low == "статус":
             print_status(ses)
+        elif low == 'разбор':
+            import json
+            graph = ses.intent.record() if ses.intent else (ses.state.intent_history[-1] if ses.state.intent_history else None)
+            print(json.dumps(graph, ensure_ascii=False, indent=2))
         elif low == "обещания":
             print("\n".join("  " + p for p in ses.status()["promises"]) or "Обещаний нет.")
         elif low in ("неделя", "конец"):

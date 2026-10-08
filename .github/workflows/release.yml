@@ -9,7 +9,7 @@ on:
     types: [published]
   workflow_dispatch:
   push:
-    branches: [main, fix/pillow-portable]
+    branches: [main, feature/semantic-ai]
     paths:
       - 'Kocto/gorod/**'
       - 'Kocto/tests/test_gorod*'
@@ -122,8 +122,8 @@ jobs:
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag --repo "${{ github.repository }}" --target "${{ github.sha }}" --prerelease `
-              --title "Город помнит $env:VERSION — самостоятельный exe (предварительная)" `
-              --notes "Самостоятельные exe: Python, Pillow, DLL и изображения внутри. Внешняя папка _internal не нужна. P2P для двух кандидатов и газетный PNG. При сбое графики есть точный отчёт и Диагностика_графики.bat. Архив проверен после распаковки; окно проверено при запуске только одного exe из папки с кириллицей."
+              --title "Город помнит $env:VERSION — намерения и переговоры (предварительная)" `
+              --notes "Смысловая структура фразы, планы до трёх действий, уточнение неоднозначности и объяснение разбора. Переговоры и исполнимые договоры с председателем; последствия нарушения. Локальные правила и классификатор, не нейросеть. Сохранения 0.6.0/0.6.1 читаются; обоим P2P-игрокам нужна 0.7.0. Python, Pillow и изображения включены. Windows-проверки: тесты, окно, графика, TCP и запуск из отдельной папки с кириллицей."
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
           gh release upload $tag "${{ env.ZIP }}" --repo "${{ github.repository }}" --clobber

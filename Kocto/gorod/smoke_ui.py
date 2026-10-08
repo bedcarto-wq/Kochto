@@ -29,6 +29,13 @@ def run():
         assert G.portrait(0, 80).width == 80
         paper = G.newspaper([], 0)
         assert paper.height > 0
+        semantic = app.session.understand('Встретиться с рабочими; затем нанять охрану')
+        assert semantic['ready'] and len(semantic['steps']) == 2
+        app.session.confirm()
+        app.refresh()
+        assert app.session.state.actions_left == 1
+        denied = app.session.understand('Не обещаю заморозить тарифы')
+        assert not denied['ready']
         m = Match(app.base_data, [candidate('Первый', 'm', skills), candidate('Вторая', 'f', skills)], seed=11)
         m.command(0, 0, 'ready'); m.command(1, 1, 'ready')
         assert m.states[0].week == 2

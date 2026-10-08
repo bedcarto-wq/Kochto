@@ -259,7 +259,10 @@ class P2PMixin:
     def net_confirm(self):
         if self.session.pending is None:
             return
-        self.net_command('action', {'card': asdict(self.session.pending), 'text': self.session.text})
+        if self.session.intent:
+            self.net_command('plan', {'text': self.session.text, 'cards': [asdict(x.card) for x in self.session.intent.steps]})
+        else:
+            self.net_command('action', {'card': asdict(self.session.pending), 'text': self.session.text})
         self.entry.delete(0, 'end')
 
     def save_network(self):

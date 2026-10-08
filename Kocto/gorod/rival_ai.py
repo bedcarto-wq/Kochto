@@ -47,23 +47,20 @@ def _clamp(v: float) -> float:
 
 
 def _simulate(state, data: dict, deltas: Dict[str, Dict[str, float]]) -> float:
-    groups = copy.deepcopy(state.groups)
-    zs = float(data["tuning"]["zero_sum"])
-    for gid, d in deltas.items():
-        g = groups[gid]
-        sup, riv = d.get("support", 0.0), d.get("rival", 0.0)
-        sup, riv = sup - zs * max(riv, 0.0), riv - zs * max(sup, 0.0)  # как engine._apply
-        g.support_player = _clamp(g.support_player + sup)
-        g.support_rival = _clamp(g.support_rival + riv)
-        g.trust = _clamp(g.trust + d.get("trust", 0.0))
-    return margin(groups, data) - margin(state.groups, data)
+    from . import engine as E
+    scratch = copy.deepcopy(state)
+    fact = E._fact(scratch, 'simulation', 'rival', 0, 0)
+    for gid, delta in deltas.items():
+        E._apply(scratch, data, fact, gid, support=delta.get('support',0.0),
+                 trust=delta.get('trust',0.0), rival=delta.get('rival',0.0))
+    return margin(scratch.groups,data) - margin(state.groups,data)
 
 
 def _sins(state, data: dict):
     rv = data["rival"]
     since = state.week - int(rv["attack_memory_weeks"])
     return [f for f in state.facts if f.actor == "player" and f.week > since
-            and f.kind in ("promise_broken", "flip_flop") and not f.extra.get("attacked")]
+            and f.kind in ("promise_broken", "flip_flop", "deal_broken") and not f.extra.get("attacked")]
 
 
 def options(state, data: dict) -> List[Option]:
@@ -77,11 +74,13 @@ def options(state, data: dict) -> List[Option]:
     for sin in _sins(state, data):
         pr = next((p for p in state.promises if p.id == sin.extra.get("promise_id")), None)
         targets = list(state.groups) if sin.kind == "flip_flop" else (pr.groups if pr else [])
+        if sin.kind == 'deal_broken':
+            targets = [g for g in state.groups if data['proposals'][sin.proposal]['stance'][g] * sin.side > 0]
         d = {g: {"support": float(rv["attack_support"]), "trust": float(rv["attack_trust"])} for g in targets}
         if d:
             out.append(Option("attack", _simulate(state, data, d), proposal=sin.proposal, side=sin.side,
                               about=sin.id, deltas=d, why="кандидат подставился: " + sin.kind))
-    stolen = state.rival_memory.setdefault("stolen", [])
+    stolen = state.rival_memory.get("stolen", [])
     horizon = max(1, min(int(rv["plan_horizon"]), state.next_election_week - state.week))
     for pid, side in state.positions.items():
         if not side or state.rival_positions.get(pid) == side or pid in stolen:
