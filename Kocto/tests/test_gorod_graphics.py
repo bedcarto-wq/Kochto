@@ -30,6 +30,12 @@ class GraphicsTest(unittest.TestCase):
         self.assertGreater(small.height, large.height)
         self.assertEqual(G.newspaper([], 0).mode, 'RGB')
 
+    def test_frozen_message_does_not_ask_install(self):
+        message = G.unavailable_message(frozen=True)
+        self.assertIn('Pillow устанавливать не нужно', message)
+        self.assertIn('Отчёт об ошибке', message)
+        self.assertIn('pillow_import_error', G.diagnostic())
+
     def test_visible_no_pillow_error(self):
         with patch.object(G, 'AVAILABLE', False):
             with self.assertRaises(E.DataError):

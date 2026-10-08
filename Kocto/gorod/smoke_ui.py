@@ -24,7 +24,7 @@ def run():
         app.refresh()
         app.update()
         if not G.AVAILABLE or app.graphic_error:
-            raise RuntimeError('Pillow / graphics failure: '+str(app.graphic_error))
+            raise RuntimeError('Pillow / graphics failure: '+str(app.graphic_error)+'\n'+str(G.IMPORT_ERROR))
         assert G.city(600, 320).width > 0
         assert G.portrait(0, 80).width == 80
         paper = G.newspaper([], 0)

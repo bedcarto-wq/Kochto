@@ -8,16 +8,35 @@ from __future__ import annotations
 import base64
 import io
 import os
+import sys
+import traceback
 from functools import lru_cache
 from pathlib import Path
 
 from .engine import DATA_DIR, DataError, load_json
 
+IMPORT_ERROR = None
+
 try:
     from PIL import Image, ImageDraw, ImageFont, ImageOps
     AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
     AVAILABLE = False
+    IMPORT_ERROR = traceback.format_exc()
+
+
+def unavailable_message(frozen=None):
+    frozen = getattr(sys, 'frozen', False) if frozen is None else frozen
+    if frozen:
+        return ('Не загрузилась встроенная графика. Pillow устанавливать не нужно. '
+                'Нажмите «Отчёт об ошибке» — он сохранит точную причину.')
+    return 'Графика отключена: Pillow не установлен или не загрузился. Установите Pillow в Python, которым запускаете игру.'
+
+
+def diagnostic():
+    return {'pillow_available': AVAILABLE, 'pillow_import_error': IMPORT_ERROR,
+            'frozen': bool(getattr(sys, 'frozen', False)), 'python': sys.version,
+            'bundled_pillow_directory': str(Path(getattr(sys, '_MEIPASS', Path(__file__).parent)) / 'PIL')}
 
 
 def config():
@@ -48,7 +67,7 @@ def config():
 @lru_cache(maxsize=2)
 def artwork(kind):
     if not AVAILABLE:
-        raise DataError('Графика отключена: установите Pillow')
+        raise DataError(unavailable_message())
     path = DATA_DIR / config()[kind]
     try:
         raw = base64.b64decode(path.read_bytes(), validate=True)
@@ -126,7 +145,7 @@ def wrapped(text, f, width):
 
 def newspaper(articles, week, width=900):
     if not AVAILABLE:
-        raise DataError('Для экспорта газеты нужен Pillow')
+        raise DataError(unavailable_message())
     width = max(480, min(int(width), 1800))
     margin = 32
     small, body, head, mast = font(17), font(20), font(28, True), font(38, True)
