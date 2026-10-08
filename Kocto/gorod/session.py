@@ -4,12 +4,15 @@
 """
 from __future__ import annotations
 
+import copy
+from dataclasses import asdict
 from pathlib import Path
 from typing import List, Optional
 
 from . import engine as E
 from .improver import improve
 from .parser import Parse, parse
+from . import intent as I
 
 MODES = {"text": "Свободный текст", "improver": "Текст + улучшатель", "card": "Карточка вручную"}
 
@@ -24,6 +27,7 @@ KIND_RU = {
     "rival_statement": "соперник перехватил позицию", "rival_compromat": "компромат", "rival_threat": "давление на вас",
     "security": "охрана усилена", "security_lost": "охрана ослабла", "publicize": "угрозы преданы огласке",
     "publicize_panic": "заявление об угрозах не убедило", "threat_warning": "предупреждение об угрозе",
+    "negotiation_offer": "председатель предложил условия", "negotiation_accept": "условия приняты", "negotiation_reject": "председатель отказал", "deal_kept": "договор выполнен", "deal_broken": "договор нарушен",
     "attack_failed": "покушение сорвано", "attack_injury": "ранение", "death": "гибель", "election": "выборы"}
 
 
@@ -39,6 +43,8 @@ class Session:
         self.parsed: Optional[Parse] = None
         self.text = ""
         self.mode = "text"
+        self.intent = None
+        self.selected_step = 0
 
     def set_mode(self, mode: str) -> None:
         if mode not in MODES:
@@ -69,23 +75,49 @@ class Session:
 
     # ---------- ход ----------
     def understand(self, text: str) -> dict:
+        self.cancel()
         self.text = text
-        self.parsed = parse(self.data, text, self._st().learned)
-        self.pending = self.parsed.card
+        self.intent = I.analyze(self.data, text, self._st())
+        self.selected_step = 0
+        self._select_pending()
+        return self.view()
+
+    def _select_pending(self):
+        if self.intent and self.intent.steps:
+            step = self.intent.steps[self.selected_step]
+            self.pending = step.card
+            self.parsed = Parse(step.card, source=step.source, confidence=step.confidence, notes=step.notes)
+        else:
+            self.pending = None
+            self.parsed = Parse(None, notes=list(self.intent.blocked) if self.intent else [])
+
+    def select_step(self, index):
+        if self.intent is None or type(index) is not int or not 0 <= index < len(self.intent.steps):
+            raise E.RuleError("нет такого шага")
+        self.selected_step = index
+        self._select_pending()
         return self.view()
 
     def suggest(self, text: str) -> List[dict]:
         """Режим улучшателя: варианты формулировок; игрок выбирает свой текст или один из них."""
+        graph = I.analyze(self.data, text, self._st())
+        if graph.blocked or any(step.blocked or step.condition for step in graph.steps) or len(graph.steps)>1:
+            return []  # never erase conditions/negations while polishing wording
         return improve(self.data, text, self._st().learned)
 
     def manual(self, action: str) -> dict:
         """Режим карточки: игрок сам выбирает действие и слоты, текст не разбирается."""
         if action not in self.data["actions"]:
             raise E.RuleError("нет такого действия: " + str(action))
+        self.cancel()
         self.parsed, self.text = None, ""
         self.pending = E.Card(action=action)
-        if action == "promise":
-            self.pending.deadline = int(self.data["actions"]["promise"]["default_deadline"])
+        if action == 'accept_deal':
+            offer = E.open_offer(self._st())
+            if offer:
+                self.pending.proposal, self.pending.side = offer['proposal'], offer['side']
+        if action in ("promise", "negotiate"):
+            self.pending.deadline = int(self.data["actions"][action]["default_deadline"])
         return self.view()
 
     def set_action(self, action: str) -> dict:
@@ -93,18 +125,36 @@ class Session:
         if self.pending is None or action not in self.data["actions"]:
             raise E.RuleError("нет карточки или такого действия")
         self.pending.action = action
-        if action == "promise" and not self.pending.deadline:
-            self.pending.deadline = int(self.data["actions"]["promise"]["default_deadline"])
+        if self.intent:
+            step = self.intent.steps[self.selected_step]
+            relevant = set(self.data['actions'][action]['requires'])
+            if action == 'interview': relevant.update(('group', 'proposal', 'paper'))
+            if action == 'accept_deal': relevant.add('proposal')
+            for field in ('group', 'proposal', 'paper'):
+                if field not in relevant: step.ambiguities.pop(field, None)
+            step.ambiguities.pop('action', None)
+            if action not in ('statement','promise','initiative','negotiate','interview'):
+                step.ambiguities.pop('side', None)
+            step.source = 'исправлено игроком'
+            if not step.blocked:
+                step.speech_act = {'promise':'commitment','negotiate':'offer','accept_deal':'acceptance'}.get(action,'instruction')
+            step.evidence.append({'field':'action','source':'игрок','value':action})
+        if action in ("promise", "negotiate") and not self.pending.deadline:
+            self.pending.deadline = int(self.data["actions"][action]["default_deadline"])
         if self.parsed is not None:  # заметки о старой догадке больше не верны
             stale = ("предполагаю", "понято по смыслу", "не учитывается", "несколько действий", "уже уточняли")
             self.parsed.notes = [n for n in self.parsed.notes if not any(x in n for x in stale)]
             self.parsed.notes.append("действие исправлено вами — игра это запомнит")
+            if self.intent:
+                self.intent.steps[self.selected_step].notes = list(self.parsed.notes)
         return self.view()
 
     def set_deadline(self, weeks: int) -> dict:
-        if self.pending is None or self.pending.action != "promise":
-            raise E.RuleError("срок бывает только у обещания")
+        if self.pending is None or self.pending.action not in ("promise", "negotiate"):
+            raise E.RuleError("срок бывает у обещания или переговоров")
         self.pending.deadline = int(weeks)
+        if self.intent:
+            self.intent.steps[self.selected_step].evidence.append({'field':'deadline','source':'игрок','value':int(weeks)})
         return self.view()
 
     def actions(self) -> List[tuple]:
@@ -120,7 +170,14 @@ class Session:
         elif value not in self.data[{"group": "groups", "proposal": "proposals", "paper": "papers"}[slot]]:
             raise E.RuleError("нет такого значения: " + str(value))
         setattr(self.pending, slot, value)
-        if slot == "proposal" and self.pending.side == 0:
+        if slot == 'proposal' and self.pending.action == 'accept_deal':
+            offer = E.open_offer(self._st(), value)
+            if offer:
+                self.pending.side = offer['side']
+        if self.intent:
+            self.intent.steps[self.selected_step].ambiguities.pop(slot, None)
+            self.intent.steps[self.selected_step].evidence.append({'field':slot,'source':'игрок','value':value})
+        if slot == "proposal" and self.pending.side == 0 and self.intent is None:
             self.pending.side = 1
         return self.view()
 
@@ -132,29 +189,79 @@ class Session:
 
     def view(self) -> dict:
         if self.pending is None:
-            notes = self.parsed.notes if self.parsed else []
-            return {"ok": False, "summary": "Не понял фразу.", "notes": notes, "missing": [], "warnings": [],
-                    "ready": False}
+            notes = list(self.parsed.notes) if self.parsed else []
+            if self.intent:
+                notes += self.intent.blocked
+                notes += [x for step in self.intent.steps for x in step.blocked]
+            return {"ok": False, "summary": "Не найдено безопасное исполнимое намерение.", "notes": list(dict.fromkeys(notes)),
+                    "missing": [], "warnings": [], "ready": False}
         pv = E.preview(self._st(), self.data, self.pending)
-        return {"ok": True, "summary": pv["summary"], "notes": list(self.parsed.notes) if self.parsed else [],
-                "warnings": pv["warnings"], "missing": pv["missing"], "chance": pv["chance"], "cost": pv["cost"],
-                "source": self.parsed.source if self.parsed else "карточка", "ready": not pv["missing"],
-                "action": self.pending.action, "deadline": self.pending.deadline}
+        missing = list(pv['missing'])
+        warnings = list(pv['warnings'])
+        notes = list(self.parsed.notes) if self.parsed else []
+        ready = not missing
+        source = self.parsed.source if self.parsed else 'карточка'
+        summary = pv['summary']
+        steps = []
+        if self.intent:
+            current = self.intent.steps[self.selected_step]
+            missing += [k for k in current.ambiguities if k != 'action' and k not in missing]
+            source = current.source
+            notes = list(current.notes) + current.blocked + self.intent.blocked
+            for n, step in enumerate(self.intent.steps, 1):
+                desc = E.describe_card(self.data, step.card) if step.card else 'не распознано'
+                steps.append(str(n) + '. ' + desc)
+            summary = '\n'.join(steps)
+            try:
+                I.compile_intent(self._st(), self.data, self.intent)
+            except E.RuleError as exc:
+                warnings += str(exc).split('\n')
+                ready = False
+            else:
+                ready = True
+            if len(steps)>1:
+                notes.append('План расходует '+str(len(steps))+' действий. Уточнения относятся к выбранному шагу.')
+            if current.condition:
+                notes.append('Условие: '+current.condition.text)
+        return {"ok": True, "summary": summary, "notes": notes, "warnings": list(dict.fromkeys(warnings)),
+                "missing": missing, "chance": pv["chance"], "cost": sum(self.data['actions'][x.card.action]['cost'] for x in self.intent.steps if x.card) if self.intent else pv['cost'],
+                "source": source, "ready": ready, "action": self.pending.action, "deadline": self.pending.deadline,
+                "steps": steps, "selected_step": self.selected_step,
+                "semantic": self.intent.record() if self.intent else None}
 
     def cancel(self) -> None:
         self.pending, self.parsed, self.text = None, None, ""
+        self.intent = None
+        self.selected_step = 0
 
     def confirm(self) -> List[str]:
         if self.pending is None:
             raise E.RuleError("нет карточки")
-        card, text = self.pending, self.text
-        out = E.perform(self._st(), self.data, card)
-        if text:
-            E.learn(self._st(), self.data, text, card.action)
+        if self.intent:
+            cards, conditions = I.compile_intent(self._st(), self.data, self.intent)
+        else:
+            I.validate_card(self.data, self.pending)
+            cards, conditions = [copy.deepcopy(self.pending)], [None]
+        # Commit the whole plan only if all operations are legal. Failed dice are
+        # normal results, not validation errors; their costs remain paid.
+        original = self._st()
+        scratch = copy.deepcopy(original)
+        lines = []
+        for index, (card, condition) in enumerate(zip(cards, conditions), 1):
+            if not I.condition_ok(scratch, condition):
+                raise E.RuleError('Условие шага '+str(index)+' больше не выполнено')
+            out = E.perform(scratch, self.data, card)
+            if len(cards)>1:
+                lines.append('Шаг '+str(index)+'/'+str(len(cards))+': '+E.describe_card(self.data, card))
+            lines += result_lines(self.data, card, out)
+            text = card.text if self.intent else self.text
+            if text:
+                E.learn(scratch, self.data, text, card.action)
+        if self.intent:
+            I.remember(scratch, self.data, self.intent)
+        original.__dict__.clear()
+        original.__dict__.update(scratch.__dict__)
         self.cancel()
-        lines = ["Бросок " + str(out["roll"]) + " + навык = " + str(out["total"]) + " против "
-                 + str(out["difficulty"]) + " → " + TIER_RU[out["tier"]]]
-        lines += ["  " + fact_line(self.data, f) for f in out["facts"]]
         return lines
 
     def end_week(self) -> dict:
@@ -200,7 +307,22 @@ class Session:
             "positions": [(d["proposals"][p]["forms"]["im"], d["sides"][str(v)]["name"]) for p, v in s.positions.items() if v],
             "rival_positions": [(d["proposals"][p]["forms"]["im"], d["sides"][str(v)]["name"])
                                 for p, v in s.rival_positions.items() if v],
-            "promises": [promise_line(d, p) for p in s.promises]}
+            "promises": [promise_line(d, p) for p in s.promises] + [deal_line(d, x) for x in s.negotiations if x['status'] in ('offered','accepted')],
+            "speaker_loyalty": s.npc_loyalty['speaker']}
+
+
+def result_lines(data, card, out):
+    lines = (["Предложение председателя принято (без броска)."] if card.action == 'accept_deal' else
+             ["Бросок " + str(out['roll']) + " + навык = " + str(out['total']) + " против " + str(out['difficulty']) + " → " + TIER_RU[out['tier']]])
+    return lines + ["  " + fact_line(data, f) for f in out['facts']]
+
+
+def deal_line(data, deal):
+    name = data['proposals'][deal['proposal']]['forms']['im']
+    side = data['sides'][str(deal['side'])]['name']
+    if deal['status'] == 'offered':
+        return 'Председатель предлагает: '+name+' — '+side+'; принять до недели '+str(deal['expires_week'])+'; выполнить за '+str(deal['term'])+' нед.'
+    return 'Договор с советом: '+name+' — '+side+'; решение до недели '+str(deal['deadline_week'])
 
 
 def promise_line(data: dict, p) -> str:
@@ -217,6 +339,8 @@ def fact_line(data: dict, f) -> str:
         name = data["groups"][gid]["forms"]["im"]
         what = {"support": "поддержка", "trust": "доверие", "rival": data["rival"]["forms"]["im"]}[kind]
         parts.append(name + " " + what + " " + ("+" if v > 0 else "") + str(round(v, 1)))
+    if f.extra.get("reason"):
+        parts.append(str(f.extra["reason"]))
     if f.extra.get("why"):
         parts.append("(" + str(f.extra["why"]) + ")")
     return " · ".join(parts)

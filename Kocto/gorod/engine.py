@@ -58,6 +58,7 @@ def load_data(data_dir: Optional[Path] = None) -> dict:
     root = Path(data_dir) if data_dir else DATA_DIR
     data = load_json(root / "gorod_mvp.json")
     data["press"] = load_json(root / "press.json")
+    data["intents"] = load_json(root / "intents.json")
     corpus = load_json(root / "train_phrases.json")
     validate(data)
     from .nlu import train
@@ -218,6 +219,18 @@ def validate(data: dict) -> None:
     pub = actions.get("publicize", {})
     for k in ("threat_cut", "min_threat", "trust_gain", "panic_trust"):
         _need(pub, k, float, "actions.publicize")
+    intent = _need(data, "intents", dict, "gorod_mvp")
+    if _need(intent, "schema_version", int, "intents") != 1:
+        raise DataError("intents: неподдерживаемая версия")
+    for key in ("max_steps", "max_text", "history_limit", "memory_limit"):
+        if _need(intent, key, int, "intents") <= 0:
+            raise DataError("intents." + key + ": должно быть положительным")
+    for key in ("sequences", "speaker_aliases", "accept_phrases", "policy_done"):
+        if not _need(intent, key, list, "intents") or any(not isinstance(v, str) or not v for v in intent[key]):
+            raise DataError("intents." + key + ": нужен список строк")
+    ng = _need(_need(data, "negotiation", dict, "gorod_mvp"), "speaker", dict, "negotiation")
+    for key in ("initiative_bonus", "kept_loyalty", "broken_loyalty", "min_loyalty", "normal_term", "trusted_term", "trusted_at", "offer_lifetime"):
+        _need(ng, key, int, "negotiation.speaker")
     _need(rv, "attack_memory_weeks", int, "rival")
     npcs = _need(data, "npcs", dict, "gorod_mvp")
     sp = _need(npcs, "speaker", dict, "npcs")
@@ -265,11 +278,11 @@ def validate(data: dict) -> None:
         keys = set(forms)
 
 
-ACTION_IDS = ("meeting", "statement", "promise", "initiative", "interview", "security", "publicize")
+ACTION_IDS = ("meeting", "statement", "promise", "initiative", "interview", "security", "publicize", "negotiate", "accept_deal")
 FACT_KINDS = ("security", "security_lost", "publicize", "publicize_panic", "threat_warning", "attack_failed",
               "attack_injury", "death", "rival_statement", "rival_compromat", "rival_threat", "meeting_ok", "meeting_fail", "statement", "statement_weak", "flip_flop", "promise",
               "promise_kept", "promise_broken", "initiative_ok", "initiative_fail", "interview_ok",
-              "interview_gaffe", "rival_meeting", "rival_attack", "election")
+              "interview_gaffe", "rival_meeting", "rival_attack", "election", "negotiation_offer", "negotiation_accept", "negotiation_reject", "deal_kept", "deal_broken")
 
 
 # ================= состояние =================
@@ -354,6 +367,9 @@ class State:
     rival_memory: Dict[str, list] = field(default_factory=dict)
     council: Dict[str, int] = field(default_factory=dict)
     learned: List[List[str]] = field(default_factory=list)
+    negotiations: List[dict] = field(default_factory=list)
+    intent_history: List[dict] = field(default_factory=list)
+    intent_memory: List[dict] = field(default_factory=list)
 
 
 def _entropy_seed() -> int:
@@ -450,7 +466,7 @@ def missing_slots(data: dict, card: Card) -> List[str]:
     for slot in data["actions"][card.action]["requires"]:
         if not getattr(card, slot):
             out.append(slot)
-    if card.proposal and card.action in ("statement", "promise", "initiative") and card.side not in (-1, 1):
+    if card.proposal and card.action in ("statement", "promise", "initiative", "negotiate") and card.side not in (-1, 1):
         out.append("side")
     return out
 
@@ -464,6 +480,9 @@ def difficulty(state: State, data: dict, card: Card) -> int:
         diff -= int(round((state.npc_loyalty["speaker"] - 50) * float(sp["per_loyalty_point"])))
         pl = next(k for k, v in data["council"]["lists"].items() if v["vote"] == "player")
         diff -= int(data["council"]["seat_bonus"]) * state.council.get(pl, 0)
+        if any(x['status'] == 'accepted' and x['proposal'] == card.proposal and x['side'] == card.side
+               and state.week <= x['deadline_week'] for x in state.negotiations):
+            diff -= data['negotiation']['speaker']['initiative_bonus']
     if card.action == "meeting" and card.group:
         diff += 5 * broken_with(state, card.group)
     return diff
@@ -475,6 +494,8 @@ def modifier(state: State, data: dict, card: Card) -> int:
 
 
 def chance(state: State, data: dict, card: Card) -> int:
+    if card.action == 'accept_deal':
+        return 100
     need = difficulty(state, data, card) - modifier(state, data, card)
     return int(clamp(101 - need, 1, 99))
 
@@ -512,6 +533,12 @@ def warnings(state: State, data: dict, card: Card) -> List[str]:
         out.append("охрана уже максимальная")
     if card.action == "security":
         out.append("содержание охраны: " + str(data["actions"]["security"]["upkeep_per_level"]) + " в неделю за уровень")
+    if card.action == 'accept_deal':
+        offer = open_offer(state, card.proposal)
+        if offer:
+            out.append('Председатель: '+offer['reason']+'; выполнить за '+str(offer['term'])+' нед.; помощь в совете −'+str(data['negotiation']['speaker']['initiative_bonus'])+' к сложности')
+            if state.positions.get(offer['proposal']) == -offer['side']:
+                out.append('Принятие условий изменит публичную позицию и снизит доверие групп')
     a = data["actions"][card.action]
     if state.money < a["cost"]:
         out.append("не хватает денег")
@@ -528,7 +555,7 @@ def describe_card(data: dict, card: Card) -> str:
         parts.append("вопрос: " + data["proposals"][card.proposal]["forms"]["im"])
         if card.side in (-1, 1):
             parts.append("позиция: " + data["sides"][str(card.side)]["name"])
-    if card.action == "promise":
+    if card.action in ("promise", "negotiate"):
         parts.append("срок: " + str(card.deadline or data["actions"]["promise"]["default_deadline"]) + " нед.")
     return " · ".join(parts)
 
@@ -580,12 +607,29 @@ def perform(state: State, data: dict, card: Card) -> dict:
             raise RuleError("это уже сделано: обещать нечего")
     if card.action == "security" and state.security >= int(a["max_level"]):
         raise RuleError("охрана уже максимальная")
-    roll = _roll(state, data, card)
+    if card.action == "negotiate":
+        if state.policies.get(card.proposal) == card.side:
+            raise RuleError("решение уже принято — предмета переговоров нет")
+        if any(x['status'] in ('offered', 'accepted') and x['proposal'] == card.proposal for x in state.negotiations):
+            raise RuleError("по этому вопросу уже есть предложение или обязательство")
+        deadline = card.deadline or data['actions']['negotiate']['default_deadline']
+        if not 1 <= deadline <= data['actions']['negotiate']['max_deadline']:
+            raise RuleError("срок переговоров: 1..8 недель")
+        card.deadline = deadline
+    if card.action == "accept_deal":
+        offer = open_offer(state, card.proposal)
+        if not offer:
+            raise RuleError("нет действующего предложения председателя")
+        if state.policies.get(offer['proposal']) == offer['side']:
+            raise RuleError("решение уже принято: нельзя получить договор за выполненную работу")
+    roll = ({'roll': 0, 'total': 0, 'difficulty': 0, 'tier': 'success'}
+            if card.action == 'accept_deal' else _roll(state, data, card))
     n_before = len(state.facts)
     state.money -= a["cost"]
     state.actions_left -= 1
     mult = float(data["outcome_mult"][roll["tier"]])
     HANDLERS[card.action](state, data, card, roll, mult)
+    resolve_deals(state, data)
     state.week_cards.append({"card": asdict(card), "roll": roll["roll"], "tier": roll["tier"]})
     return {"roll": roll["roll"], "total": roll["total"], "difficulty": roll["difficulty"],
             "tier": roll["tier"], "facts": state.facts[n_before:]}
@@ -771,9 +815,71 @@ def _do_publicize(state, data, card, roll, mult):
                rival=-3.0 if enemy == "rival_circle" else 0.0)
 
 
+def open_offer(state, proposal=""):
+    return next((x for x in reversed(state.negotiations) if x['status'] == 'offered'
+                 and state.week <= x['expires_week'] and (not proposal or x['proposal'] == proposal)), None)
+
+
+def _do_negotiate(state, data, card, roll, mult):
+    rules = data['negotiation']['speaker']
+    loyalty = state.npc_loyalty['speaker']
+    broken = sum(x['status'] == 'broken' for x in state.negotiations[-10:])
+    if roll['tier'] == 'fail' or loyalty < rules['min_loyalty']:
+        _fact(state, 'negotiation_reject', 'player', -1, 5, proposal=card.proposal, side=card.side,
+              extra={'reason': 'председатель не доверяет кандидату' if loyalty < rules['min_loyalty'] else 'предложение не убедило председателя'})
+        return
+    term = min(card.deadline, rules['trusted_term'] if loyalty >= rules['trusted_at'] and not broken else rules['normal_term'])
+    reason = 'председателю нужно принятое решение, а не новое публичное обещание'
+    if term < card.deadline:
+        reason += '; ваш срок сокращён до ' + str(term) + ' нед.'
+    if broken:
+        reason += '; учитывает ранее нарушенные договорённости'
+    deal = {'id': 'd' + str(state.week) + '_' + str(len(state.facts)), 'npc': 'speaker',
+            'proposal': card.proposal, 'side': card.side, 'made_week': state.week, 'term': term,
+            'expires_week': state.week + rules['offer_lifetime'], 'deadline_week': 0,
+            'status': 'offered', 'reason': reason}
+    state.negotiations.append(deal)
+    # Preserve all active contracts, trim only old closed ones.
+    closed = [x for x in state.negotiations if x['status'] not in ('offered', 'accepted')]
+    drop = {x['id'] for x in closed[:-50]}
+    state.negotiations[:] = [x for x in state.negotiations if x['id'] not in drop]
+    _fact(state, 'negotiation_offer', 'player', 0, 9, proposal=card.proposal, side=card.side,
+          extra={'reason': reason, 'deadline': term, 'deal_id': deal['id']})
+
+
+def _do_accept_deal(state, data, card, roll, mult):
+    deal = open_offer(state, card.proposal)
+    deal['status'] = 'accepted'
+    deal['deadline_week'] = state.week + deal['term'] - 1
+    _position_change(state, data, deal['proposal'], deal['side'])
+    _fact(state, 'negotiation_accept', 'player', 1, 8, proposal=deal['proposal'], side=deal['side'],
+          extra={'reason': 'принято обязательство перед советом', 'deadline': deal['term'], 'deal_id': deal['id']})
+
+
+def resolve_deals(state, data, end=False):
+    rules = data['negotiation']['speaker']
+    for deal in state.negotiations:
+        if deal['status'] == 'offered':
+            if end and state.week >= deal['expires_week']:
+                deal['status'] = 'expired'
+            continue
+        if deal['status'] != 'accepted':
+            continue
+        if state.policies.get(deal['proposal']) == deal['side']:
+            deal['status'] = 'fulfilled'
+            state.npc_loyalty['speaker'] = int(clamp(state.npc_loyalty['speaker'] + rules['kept_loyalty']))
+            _fact(state, 'deal_kept', 'player', 1, 10, proposal=deal['proposal'], side=deal['side'],
+                  extra={'reason': 'решение совета принято в срок', 'deal_id': deal['id']})
+        elif state.positions.get(deal['proposal']) == -deal['side'] or (end and state.week >= deal['deadline_week']):
+            deal['status'] = 'broken'
+            state.npc_loyalty['speaker'] = int(clamp(state.npc_loyalty['speaker'] + rules['broken_loyalty']))
+            _fact(state, 'deal_broken', 'player', -1, 12, proposal=deal['proposal'], side=deal['side'],
+                  extra={'reason': 'публичная позиция против договора' if state.positions.get(deal['proposal']) == -deal['side'] else 'срок решения совета истёк', 'deal_id': deal['id']})
+
+
 HANDLERS = {"statement": _do_statement, "promise": _do_promise, "interview": _do_interview,
             "meeting": _do_meeting, "initiative": _do_initiative, "security": _do_security,
-            "publicize": _do_publicize}
+            "publicize": _do_publicize, "negotiate": _do_negotiate, "accept_deal": _do_accept_deal}
 
 
 def _keep_promise(state: State, data: dict, p: Promise) -> None:
@@ -956,6 +1062,7 @@ def end_week(state: State, data: dict) -> dict:
     for p in state.promises:
         if p.status == "open" and p.deadline_week <= state.week:
             _break_promise(state, data, p)
+    resolve_deals(state, data, end=True)
     _drift(state, data)
     avg = sum(g.support_player for g in state.groups.values()) / len(state.groups)
     income = int(round(float(data["economy"]["income_base"]) + float(data["economy"]["income_per_support"]) * avg))
@@ -1006,7 +1113,25 @@ def from_dict(d: dict) -> State:
         d["groups"] = {k: GroupState(**v) for k, v in d["groups"].items()}
         d["promises"] = [Promise(**p) for p in d["promises"]]
         d["facts"] = [Fact(**f) for f in d["facts"]]
-        return State(**d)
+        state = State(**d)
+        if not isinstance(state.negotiations, list) or not isinstance(state.intent_history, list) or not isinstance(state.intent_memory, list):
+            raise DataError("сохранение: неверная память намерений")
+        for item in state.intent_memory:
+            if not isinstance(item, dict) or set(item) != {'text','card'} or not isinstance(item['text'], str) or not isinstance(item['card'], dict):
+                raise DataError('сохранение: повреждённая память уточнений')
+        for item in state.intent_history:
+            if not isinstance(item, dict) or not isinstance(item.get('text'), str) or not isinstance(item.get('steps'), list):
+                raise DataError('сохранение: повреждённая история намерений')
+        for deal in state.negotiations:
+            required = {'id', 'npc', 'proposal', 'side', 'made_week', 'term', 'expires_week', 'deadline_week', 'status', 'reason'}
+            if not isinstance(deal, dict) or set(deal) != required or deal['status'] not in ('offered', 'accepted', 'fulfilled', 'broken', 'expired'):
+                raise DataError("сохранение: повреждённая договорённость")
+            if (deal['npc'] != 'speaker' or not isinstance(deal['id'],str) or not isinstance(deal['reason'],str)
+                    or deal['proposal'] not in state.policies or deal['side'] not in (-1,1)
+                    or any(type(deal[k]) is not int for k in ('side','made_week','term','expires_week','deadline_week'))
+                    or deal['term']<1 or deal['made_week']<1):
+                raise DataError("сохранение: повреждённые условия договора")
+        return state
     except (KeyError, TypeError) as exc:
         raise DataError("сохранение повреждено: " + str(exc)) from exc
 

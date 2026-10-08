@@ -16,9 +16,11 @@ from pathlib import Path
 
 from . import engine as E
 from . import press
+from . import intent as I
 from .session import Session, fact_line, election_chart
 
 FORMAT = 1
+LEGACY_RULES = "93cd66734f2f8312721ba210b3f355e97f26fe1af04b234be449dd45fa424821"
 
 
 def fingerprint(data):
@@ -113,6 +115,7 @@ class Match:
                         o.groups[gid].support_player = g.support_rival
                         o.groups[gid].support_rival = g.support_player
         for i, s in enumerate(self.states):
+            E.resolve_deals(s, self.scoped_data(i))
             for gid, g in s.groups.items():
                 g.rival_trust = self.states[1-i].groups[gid].trust
 
@@ -137,6 +140,41 @@ class Match:
         return lines
 
     def _command(self, player, op, payload):
+        if op == 'plan':
+            if not isinstance(payload, dict) or set(payload) != {'text', 'cards'}:
+                raise E.RuleError('Неверный формат плана')
+            if not isinstance(payload['text'], str) or len(payload['text']) > self.data['intents']['max_text']:
+                raise E.RuleError('Неверный текст плана')
+            raws = payload['cards']
+            if not isinstance(raws, list) or not 1 <= len(raws) <= self.data['intents']['max_steps']:
+                raise E.RuleError('План: 1..3 операции')
+            graph = I.analyze(self.scoped_data(player), payload['text'], self.states[player])
+            if len(graph.steps) != len(raws):
+                raise E.RuleError('Количество операций не совпадает с текстом плана')
+            # The host rechecks semantic guards; the guest sends only explicitly
+            # confirmed corrections, never engine effects or arbitrary predicates.
+            for step, raw in zip(graph.steps, raws):
+                if not isinstance(raw, dict) or set(raw) != set(asdict(E.Card('meeting'))):
+                    raise E.RuleError('Неверная карточка плана')
+                try:
+                    card = E.Card(**raw)
+                except TypeError as exc:
+                    raise E.RuleError('Неверная карточка плана') from exc
+                I.validate_card(self.data, card)
+                card.text = step.card.text if step.card else step.text
+                step.card = card
+                step.ambiguities.clear()  # these are the guest's explicit choices
+            I.compile_intent(self.states[player], self.scoped_data(player), graph)
+            lines = []
+            for index, step in enumerate(graph.steps, 1):
+                if not I.condition_ok(self.states[player], step.condition):
+                    raise E.RuleError('Условие шага изменилось')
+                current = self._command(player, 'action', {'card': asdict(step.card), 'text': step.card.text})
+                if len(graph.steps)>1:
+                    lines.append('Шаг '+str(index)+'/'+str(len(graph.steps)))
+                lines += current
+            I.remember(self.states[player], self.scoped_data(player), graph)
+            return lines
         if op == 'action':
             if not isinstance(payload, dict) or set(payload) != {'card', 'text'}:
                 raise E.RuleError('Неверная команда действия')
@@ -181,6 +219,7 @@ class Match:
             for p in s.promises:
                 if p.status == 'open' and p.deadline_week <= week:
                     E._break_promise(s, d, p)
+            E.resolve_deals(s, d, end=True)
             self._sync(i)
         # Drift: compute each personal result against the same shared snapshot.
         # Do not run solo's rival drift a second time.
@@ -256,7 +295,7 @@ class Match:
     @classmethod
     def restore(cls, data, obj):
         try:
-            if obj['format'] != FORMAT or obj['rules'] != fingerprint(data):
+            if obj['format'] != FORMAT or obj['rules'] not in (fingerprint(data), LEGACY_RULES):
                 raise E.DataError('P2P: несовместимая версия правил / сохранения')
             if (not isinstance(obj['states'], list) or len(obj['states']) != 2
                     or type(obj['revision']) is not int or obj['revision'] < 0
