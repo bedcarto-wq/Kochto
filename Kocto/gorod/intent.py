@@ -111,6 +111,12 @@ def analyze(data,text,state=None):
             if step.condition is None:step.blocked.append('Неизвестное условие: не превращаю его в безусловное действие. Поддержано только уже принятое решение по известному вопросу.')
         parsed=P.parse(data,main,state.learned if state else None)
         step.card=parsed.card;step.source=parsed.source;step.confidence=parsed.confidence;step.notes=list(parsed.notes)
+        classifier=P.model(data,state.learned if state else None)
+        scores=classifier.predict(P.tokens(main)) if classifier else None
+        if scores:
+            step.evidence.append({'field':'classifier','source':'локальная нейросеть MLP',
+                                  'candidates':[{'action':a,'score':round(v,4)} for a,v in sorted(scores.items(),key=lambda x:(-x[1],x[0]))[:3]],
+                                  'note':'Оценки классификатора, не вероятность успеха хода; правила имеют приоритет.'})
         lower=_norm(main)
         is_accept=any(lower.strip().startswith(_norm(x)) for x in data['intents']['accept_phrases'])
         if is_accept:
