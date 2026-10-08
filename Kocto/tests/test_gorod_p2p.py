@@ -153,9 +153,9 @@ class MatchTest(unittest.TestCase):
             loaded = Match.load(self.data, p)
             self.assertEqual(loaded.snapshot(), self.m.snapshot())
             loaded.command(1, loaded.revision, 'ready')
-            obj = json.loads(p.read_text())
+            obj = json.loads(p.read_text(encoding="utf-8"))
             obj['match']['revision'] += 1
-            p.write_text(json.dumps(obj))
+            p.write_text(json.dumps(obj), encoding="utf-8")
             with self.assertRaises(E.DataError):
                 Match.load(self.data, p)
 
