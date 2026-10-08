@@ -234,7 +234,7 @@ def election_chart(data: dict, state, e: dict, forecast: bool = False) -> dict:
     name = {lid: (lst["name"] if lst["vote"] != "player" else lst["name"] + " (" + state.player_name + ")")
             for lid, lst in lists.items()}
     council = [(name[lid], round(100 * co["share"][lid], 1), co["seats"][lid]) for lid in lists]
-    winner = state.player_name if e["won"] else rival
+    winner = "ничья (новый мэр не назначен)" if e["player"] == e["rival"] else (state.player_name if e["won"] else rival)
     seats_txt = ", ".join(n + " — " + str(k) for n, _, k in council)
     caption = (("Прогноз. " if forecast else "") + "Мэр: " + winner + ". Мандаты совета ("
                + str(data["council"]["seats"]) + "): " + seats_txt + ". Порог "

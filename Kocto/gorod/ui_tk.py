@@ -13,6 +13,15 @@ from . import __version__
 from . import engine as E
 from .paths import save_dir
 from .session import MODES, SLOT_RU, Session
+from .ui_p2p import P2PMixin
+from . import graphics as G
+import json
+import platform
+import traceback
+from datetime import datetime
+
+if G.AVAILABLE:
+    from PIL import ImageTk
 
 SAVE_DIR = save_dir()
 EXAMPLES = ("Примеры: «встретиться с пенсионерами», «пообещать заморозку тарифов за 4 недели», "
@@ -71,14 +80,22 @@ class NewGameDialog(tk.Toplevel):
         self.destroy()
 
 
-class App(tk.Tk):
+class App(P2PMixin, tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Кочто — Город помнит " + __version__)
-        self.geometry("1180x760")
+        self.geometry("1180x860")
+        self.minsize(1000, 760)
+        self.last_articles = []
+        self.last_paper_week = 0
+        self.images = {}
+        self.graphic_error = None
+        self.scale_value = 1.0
+        self.tk.call("tk", "scaling", 1.33333)
         self.session = Session()
         self.slot_vars = {}
         self._build()
+        self.init_p2p()
         self.after(100, self.new_game)
 
     # ---------- раскладка ----------
@@ -87,8 +104,16 @@ class App(tk.Tk):
         top.pack(fill="x", padx=8, pady=4)
         for text, cmd in (("Новая игра", self.new_game), ("Сохранить", self.save), ("Загрузить", self.load)):
             ttk.Button(top, text=text, command=cmd).pack(side="left", padx=2)
-        self.header = ttk.Label(top, font=("Arial", 11, "bold"))
-        self.header.pack(side="left", padx=12)
+        ttk.Button(top, text="P2P с другом", command=self.p2p_dialog).pack(side="left", padx=2)
+        ttk.Button(top, text="Отчёт об ошибке", command=self.error_report).pack(side="left", padx=2)
+        statusrow = ttk.Frame(self)
+        statusrow.pack(fill="x", padx=10)
+        self.net_label = ttk.Label(statusrow, text="Одиночная кампания", wraplength=1100)
+        self.net_label.pack(anchor="w")
+        self.graphics_label = ttk.Label(statusrow, text="ИИ-иллюстрации · Pillow" if G.AVAILABLE else "Графика отключена: Pillow не установлен. Игра доступна в текстовом виде.", foreground="#666")
+        self.graphics_label.pack(anchor="w")
+        self.header = ttk.Label(statusrow, font=("Arial", 11, "bold"))
+        self.header.pack(anchor="w", pady=4)
 
         body = ttk.Panedwindow(self, orient="horizontal")
         body.pack(fill="both", expand=True, padx=8)
@@ -104,9 +129,9 @@ class App(tk.Tk):
             self.groups.heading(c, text=t)
             self.groups.column(c, width=70, anchor="center")
         self.groups.pack(fill="x", pady=4)
-        self.forecast = ttk.Label(left)
+        self.forecast = ttk.Label(left, wraplength=400)
         self.forecast.pack(anchor="w")
-        self.threat = ttk.Label(left)
+        self.threat = ttk.Label(left, wraplength=400)
         self.threat.pack(anchor="w", pady=2)
         ttk.Label(left, text="Позиции", font=("Arial", 10, "bold")).pack(anchor="w", pady=(8, 0))
         self.positions = tk.Text(left, height=6, wrap="word")
@@ -117,10 +142,35 @@ class App(tk.Tk):
 
         tabs = ttk.Notebook(right)
         tabs.pack(fill="both", expand=True)
+        self.city_frame = ttk.Frame(tabs)
+        self.city_canvas = tk.Canvas(self.city_frame, background="#f5f0e4", highlightthickness=0, height=280)
+        self.city_canvas.pack(fill="both", expand=True)
+        self.city_canvas.bind("<Configure>", lambda e: self.draw_city())
+        self.portrait_row = ttk.Frame(self.city_frame)
+        self.portrait_row.pack(fill="x", pady=8)
+        self.portrait_widgets = []
+        for i, name in enumerate(("Председатель совета", "Редактор газеты", "Пенсионеры", "Рабочие")):
+            panel = ttk.Frame(self.portrait_row)
+            panel.pack(side="left", expand=True, fill="both", padx=4)
+            label = ttk.Label(panel, anchor="center")
+            label.pack()
+            ttk.Label(panel, text=name, anchor="center", wraplength=120).pack(fill="x")
+            self.portrait_widgets.append(label)
+        ttk.Label(self.city_frame, text="Условный вид города · персонажи вымышлены · показатели групп слева", wraplength=560).pack(pady=4)
+        self.paper_frame = ttk.Frame(tabs)
+        ttk.Button(self.paper_frame, text="Сохранить выпуск в PNG", command=self.export_newspaper).pack(anchor="e", padx=8, pady=4)
+        scroll = ttk.Scrollbar(self.paper_frame, orient="vertical")
+        scroll.pack(side="right", fill="y")
+        self.paper_canvas = tk.Canvas(self.paper_frame, background="#f5f0e4", highlightthickness=0, yscrollcommand=scroll.set)
+        self.paper_canvas.pack(fill="both", expand=True)
+        scroll.configure(command=self.paper_canvas.yview)
+        self.paper_canvas.bind("<Configure>", lambda e: self.draw_newspaper())
         self.press = tk.Text(tabs, wrap="word", font=("Georgia", 11))
         self.log = tk.Text(tabs, wrap="word")
         self.chart = tk.Canvas(tabs, background="white")
-        tabs.add(self.press, text="Газеты")
+        tabs.add(self.city_frame, text="Город")
+        tabs.add(self.paper_frame, text="Выпуск газеты")
+        tabs.add(self.press, text="Газеты — текст")
         tabs.add(self.chart, text="Выборы")
         tabs.add(self.log, text="Журнал хода")
         self.tabs = tabs
@@ -130,7 +180,7 @@ class App(tk.Tk):
         self.press.tag_configure("head", font=("Georgia", 13, "bold"))
 
         bottom = ttk.Frame(self)
-        bottom.pack(fill="x", padx=8, pady=6)
+        bottom.pack(side="bottom", fill="x", padx=8, pady=6, before=body)
         modes = ttk.Frame(bottom)
         modes.pack(fill="x")
         ttk.Label(modes, text="Ввод:").pack(side="left")
@@ -139,7 +189,7 @@ class App(tk.Tk):
             ttk.Radiobutton(modes, text=label, value=key, variable=self.mode,
                             command=self.switch_mode).pack(side="left", padx=4)
         ttk.Button(modes, text="Выгрузить выученные фразы", command=self.export).pack(side="right")
-        ttk.Label(bottom, text=EXAMPLES, foreground="#666").pack(anchor="w")
+        ttk.Label(bottom, text=EXAMPLES, foreground="#666", wraplength=950).pack(anchor="w")
         self.text_row = ttk.Frame(bottom)
         self.text_row.pack(fill="x", pady=2)
         self.entry = ttk.Entry(self.text_row, font=("Arial", 12))
@@ -152,7 +202,8 @@ class App(tk.Tk):
                                         values=[n for _, n in self.session.actions()])
         self.card_action.pack(side="left", padx=4)
         self.card_action.bind("<<ComboboxSelected>>", lambda e: self.manual())
-        ttk.Button(bottom, text="Завершить неделю", command=self.end_week).pack(anchor="e")
+        self.week_btn = ttk.Button(bottom, text="Завершить неделю", command=self.end_week)
+        self.week_btn.pack(anchor="e")
         self.preview = ttk.LabelFrame(bottom, text="Понято как")
         self.preview.pack(fill="x", pady=4)
         self.summary = ttk.Label(self.preview, wraplength=1100, justify="left")
@@ -173,6 +224,8 @@ class App(tk.Tk):
             if self.session.state is None:
                 self.destroy()
             return
+        if self.link and not self.leave_network():
+            return
         name, gender, skills = dlg.result
         try:
             self.session.new(name, gender, skills)
@@ -182,11 +235,17 @@ class App(tk.Tk):
         self.press.delete("1.0", "end")
         self.log.delete("1.0", "end")
         self.last_chart = None
+        self.last_articles = []
+        self.last_paper_week = 0
+        self.week_btn.configure(state="normal")
         self._log("Кампания началась. Выборы — на неделе " + str(self.session.state.next_election_week) + ".")
         self.cancel()
         self.refresh()
 
     def save(self):
+        if self.link:
+            self.save_network()
+            return
         if self.session.state is None:
             return
         SAVE_DIR.mkdir(exist_ok=True)
@@ -202,11 +261,17 @@ class App(tk.Tk):
         if not path:
             return
         try:
-            self.session.load(Path(path))
+            loaded = E.load_game(Path(path))
         except E.DataError as exc:
             messagebox.showerror("Загрузка", str(exc))
             return
+        if self.link and not self.leave_network():
+            return
+        self.session.state = loaded
+        self.session.cancel()
+        self.week_btn.configure(state="normal")
         self._log("Загружено: " + path)
+        self.last_articles = []
         self.last_chart = None
         self.cancel()
         self.refresh()
@@ -313,7 +378,7 @@ class App(tk.Tk):
             box = ttk.Combobox(self.slots, state="readonly", values=[lab for _, lab in opts], width=34)
             box.pack(side="left", padx=4)
             box.bind("<<ComboboxSelected>>", lambda e, s=slot, o=opts, b=box: self._pick(s, o[b.current()][0]))
-        self.do_btn.configure(state="normal" if view.get("ready") else "disabled")
+        self.do_btn.configure(state="normal" if view.get("ready") and self.can_act() else "disabled")
 
     def _pick(self, slot, value):
         self._show(self.session.set_slot(slot, value))
@@ -326,6 +391,9 @@ class App(tk.Tk):
         self.do_btn.configure(state="disabled")
 
     def confirm(self):
+        if self.link:
+            self.net_confirm()
+            return
         try:
             lines = self.session.confirm()
         except E.RuleError as exc:
@@ -338,6 +406,9 @@ class App(tk.Tk):
         self.refresh()
 
     def end_week(self):
+        if self.link:
+            self.net_command("ready")
+            return
         if self.session.state is None or self.session.over:
             return
         try:
@@ -345,6 +416,11 @@ class App(tk.Tk):
         except E.RuleError as exc:
             messagebox.showwarning("Неделя", str(exc))
             return
+        self.present_report(rep)
+
+    def present_report(self, rep):
+        self.last_articles = rep["articles"]
+        self.last_paper_week = rep["week"]
         for line in rep["lines"]:
             self._log(line)
         self.press.insert("1.0", "\n")
@@ -355,12 +431,15 @@ class App(tk.Tk):
         if rep.get("chart"):
             self.last_chart = rep["chart"]
             self.tabs.select(self.chart)
+        self.draw_newspaper()
         self.refresh()
-        if rep["dead"]:
+        if rep.get("match_ended"):
+            messagebox.showinfo("P2P окончена", "Один из кандидатов погиб. Город запомнит.")
+        elif rep["dead"]:
             messagebox.showinfo("Игра окончена", "Кандидат погиб. Город запомнит.")
         elif rep["election"]:
             e = rep["election"]
-            messagebox.showinfo("Выборы", ("Победа" if e["won"] else "Поражение") + ": "
+            messagebox.showinfo("Выборы", ("Ничья" if e["player"] == e["rival"] else ("Победа" if e["won"] else "Поражение")) + ": "
                                 + str(e["player"]) + " против " + str(e["rival"]) + ". Игра продолжается.")
 
     # ---------- диаграмма выборов ----------
@@ -424,6 +503,76 @@ class App(tk.Tk):
         for p in st["promises"]:
             self.promises.insert("end", p)
         self.draw_chart()
+        self.draw_city()
+        self.draw_newspaper()
+        self.week_btn.configure(state="normal" if self.can_act() and not self.session.over else "disabled")
+
+    def graphic_failure(self, exc):
+        self.graphic_error = str(exc)
+        self.graphics_label.configure(text='Ошибка графики: '+str(exc)+'. Текстовая игра доступна.')
+
+    def draw_city(self):
+        c = self.city_canvas
+        c.delete('all')
+        if not G.AVAILABLE:
+            c.create_text(24, 24, anchor='nw', text='Текстовый режим — установите Pillow для графики.', width=450)
+            return
+        try:
+            w, h = max(c.winfo_width(), 100), max(c.winfo_height(), 80)
+            im = G.city(w, h)
+            self.images['city'] = ImageTk.PhotoImage(im, master=self)
+            c.create_image(w//2, h//2, image=self.images['city'])
+            for i, label in enumerate(self.portrait_widgets):
+                self.images['portrait'+str(i)] = ImageTk.PhotoImage(G.portrait(i, min(100, int(90*self.scale_value))), master=self)
+                label.configure(image=self.images['portrait'+str(i)])
+        except E.DataError as exc:
+            self.graphic_failure(exc)
+
+    def draw_newspaper(self):
+        c = self.paper_canvas
+        c.delete('all')
+        if not G.AVAILABLE:
+            c.create_text(24, 24, anchor='nw', text='Газеты доступны во вкладке «Газеты — текст».', width=450)
+            return
+        try:
+            width = max(480, c.winfo_width()-8)
+            im = G.newspaper(self.last_articles, self.last_paper_week, width)
+            self.images['newspaper'] = ImageTk.PhotoImage(im, master=self)
+            c.create_image(0, 0, anchor='nw', image=self.images['newspaper'])
+            c.configure(scrollregion=(0, 0, im.width, im.height))
+        except E.DataError as exc:
+            self.graphic_failure(exc)
+
+    def export_newspaper(self):
+        if not G.AVAILABLE:
+            messagebox.showinfo('Газета', 'Для экспорта PNG установите Pillow.', parent=self)
+            return
+        path = filedialog.asksaveasfilename(defaultextension='.png', initialfile='Город-помнит-неделя-'+str(self.last_paper_week)+'.png', filetypes=[('PNG', '*.png')])
+        if path:
+            try:
+                G.newspaper(self.last_articles, self.last_paper_week).save(path)
+                self._log('Газетный выпуск сохранён: '+path)
+            except (E.DataError, OSError) as exc:
+                messagebox.showerror('Газета', str(exc), parent=self)
+
+    def error_report(self, error=None):
+        SAVE_DIR.mkdir(exist_ok=True)
+        path = SAVE_DIR / ('error-'+datetime.now().strftime('%Y%m%d-%H%M%S')+'.txt')
+        # No shared code, IP, credentials or campaign text in a diagnostic report.
+        state = self.session.state
+        report = {'version': __version__, 'python': platform.python_version(), 'os': platform.platform(),
+                  'pillow': G.AVAILABLE, 'week': state.week if state else None,
+                  'network': bool(self.link), 'network_disconnected': self.net_disconnected,
+                  'graphics_error': self.graphic_error, 'error': error}
+        path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+        messagebox.showinfo('Отчёт об ошибке', 'Сохранён файл для отправки разработчику:\n'+str(path), parent=self)
+
+    def report_callback_exception(self, exc_type, exc_value, tb):
+        details = ''.join(traceback.format_exception(exc_type, exc_value, tb))
+        try:
+            self.error_report(details)
+        except Exception:
+            messagebox.showerror('Ошибка игры', str(exc_value), parent=self)
 
 
 def main():
