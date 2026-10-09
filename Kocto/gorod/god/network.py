@@ -30,5 +30,8 @@ def command(world,revision,op,payload):
     elif op=='power':world.intervene(payload)
     elif op=='direct':world.direct(payload)
     elif op=='step':world.step(payload,True)
+    elif op=='story':
+        if not isinstance(payload,dict) or set(payload)!={'op','value'}:raise RuleError('Неверная операция истории')
+        world.story_action(payload['op'],payload['value'])
     else:raise RuleError('Неизвестная сетевая операция')
     return snapshot(world)

@@ -14,7 +14,7 @@ from ..shortcuts import ShortcutStore,normalize_clipboard
 from .world import World,forecast,attraction,affected
 from .language import parse,execute
 from . import network as N
-from . import living,agents,civic
+from . import living,agents,civic,story
 from ..p2p import Link, NetworkError, new_code, DEFAULT_PORT
 from .world import fingerprint
 import queue
@@ -23,11 +23,11 @@ if G.AVAILABLE:from PIL import ImageTk
 
 
 class App(tk.Tk):
-    def __init__(self,seed=None):
+    def __init__(self,seed=None,scenario=None,goal='livelihood'):
         super().__init__();self.title('Кочто — Город помнит '+__version__+' · Бог и город')
         self.geometry('1280x900');self.minsize(1000,700)
         self.tk.call('tk','scaling',1.33333)
-        self.world=World(seed);self.pending=None;self.running=False;self.speed=tk.StringVar(value='1 неделя / сек');self.last_error=''
+        self.world=World(seed,scenario=scenario,goal=goal);self.pending=None;self.running=False;self.speed=tk.StringVar(value='1 неделя / сек');self.last_error=''
         self.link=None;self.net_host=False;self.net_connected=False;self.net_busy=False;self.net_failed=False
         self.shortcuts=ShortcutStore(save_dir()/'god_actions.json');self.photo=None;self.legacy_window=None
         self._build();self.refresh();self.after(1000,self._clock);self.after(100,self.poll_network);self.protocol('WM_DELETE_WINDOW',self.close)
@@ -90,9 +90,14 @@ class App(tk.Tk):
         self._button(buttons,'Отмена',self.cancel)
         self.tabs=ttk.Notebook(self);self.tabs.pack(fill='both',expand=True,padx=8,pady=4)
         frames={}
-        for key,label in [('city','Город'),('people','Избиратели'),('homes','Домохозяйства'),('civic','Общество'),('parties','Политика'),('history','Хроника'),('election','Выборы'),('actors','Люди и связи'),('limits','Что реализовано')]:
+        for key,label in [('story','История'),('city','Город'),('people','Избиратели'),('homes','Быт'),('civic','Общество'),('parties','Политика'),('history','Хроника'),('election','Выборы'),('actors','Люди'),('limits','План')]:
             frames[key]=ttk.Frame(self.tabs);self.tabs.add(frames[key],text=label)
         self.frames=frames
+        storytools=ttk.Frame(frames['story']);storytools.pack(fill='x',padx=8,pady=6)
+        self.goal_box=ttk.Combobox(storytools,state='readonly',values=list(story.GOALS.values()),width=48);self.goal_box.pack(side='left',padx=4);self.goal_box.current(0)
+        self._button(storytools,'Пересмотреть обязательство',self.change_goal)
+        self.continue_btn=self._button(storytools,'Продолжить мир',self.continue_story)
+        self.story_text=self._text(frames['story'],18)
         city=ttk.Panedwindow(frames['city'],orient='horizontal');city.pack(fill='both',expand=True)
         imageframe=ttk.Frame(city);city.add(imageframe,weight=1)
         self.city_canvas=tk.Canvas(imageframe,bg='#f5f0e4',height=210,highlightthickness=0);self.city_canvas.pack(fill='both',expand=True,padx=6,pady=6);self.city_canvas.bind('<Configure>',lambda e:self.draw_city())
@@ -137,7 +142,7 @@ class App(tk.Tk):
             tree.bind('<<TreeviewSelect>>',lambda e,k=key:self.civic_details_show(k));self.civic_views[key]=tree;self.civic_details[key]=self._text(frame,6)
         frame=ttk.Frame(sub);sub.add(frame,text='Причины изменений');self.cause_text=self._text(frame,16)
         self.limits=self._text(frames['limits'],18)
-        self._set(self.limits,'0.8.5 — следующий слой рабочей основы новой концепции, не все 132 пункта в полном объёме.\n\nРаботают: автономные недели; 144 когорты с пересекающимися признаками; идеологическая близость и оценки каждой партии; отдельная явка; партии, агитация и смена программ; обещания и проекты; коалиции; три правила выборов; информация и известные факты; инфраструктура, занятость, миграция; движения и преемники; косвенные силы; прямой редактор; контрольная сумма сохранений.\n\nУпрощены: внутри когорт распределение описано средним и разбросом; проекты и хозяйство агрегированы; отношения индивидуальны только у ключевых лиц; журналистика и память событий имеют небольшое число правил.\n\nВ 0.8.5: учреждения имеют вместимость, персонал и очереди; жители создают объединения и оценивают ответы партий; проекты проходят согласование, финансирование, выполнение и набор персонала. Документы хранят факты на дату, журналист сопоставляет объявление и акт. Новые силы создают возможность встречи, доступ к документу, свободное время и облегчают координацию. Ни встреча, ни публикация, ни поддержка партии не гарантированы. Причинный архив ограничен; изменения привлекательности разложены по компонентам, но вклад каждого отдельного события не вычисляется.\n\nДобавлены: бюджеты представительных домохозяйств (расходы, резерв, кредит, проценты, нехватка); решения о работе, курсе, заботе и взаимопомощи. Политики сравнивают действия по стоимости, характеру и сохранённой выборке, а не читают точные предпочтения всех жителей. Это прозрачный планировщик, не нейросетевые личности.\n\nЕщё не готовы: отдельные индивидуальные домохозяйства, подробный жизненный план каждого гражданина, второй тур, объединение партий, индивидуальное обучение стратегий и отложенные условные чудеса. P2P бога — два доверенных наблюдателя/участника одного мира с авторитетным создателем.\n\nСвободный ввод не означает произвольный исполняемый код. Неподдерживаемая механика блокируется. Нейросеть предлагает варианты; условия и приказы не превращаются в готовую победу партии.\n\nПодробный план и критерии: ПЛАН_0_8.md в репозитории.')
+        self._set(self.limits,'0.8.6 — сценарий с обязательством и эпилогом; следующий слой рабочей основы новой концепции, не все 132 пункта в полном объёме.\n\nРаботают: автономные недели; 144 когорты с пересекающимися признаками; идеологическая близость и оценки каждой партии; отдельная явка; партии, агитация и смена программ; обещания и проекты; коалиции; три правила выборов; информация и известные факты; инфраструктура, занятость, миграция; движения и преемники; косвенные силы; прямой редактор; контрольная сумма сохранений.\n\nУпрощены: внутри когорт распределение описано средним и разбросом; проекты и хозяйство агрегированы; отношения индивидуальны только у ключевых лиц; журналистика и память событий имеют небольшое число правил.\n\nВ 0.8.5: учреждения имеют вместимость, персонал и очереди; жители создают объединения и оценивают ответы партий; проекты проходят согласование, финансирование, выполнение и набор персонала. Документы хранят факты на дату, журналист сопоставляет объявление и акт. Новые силы создают возможность встречи, доступ к документу, свободное время и облегчают координацию. Ни встреча, ни публикация, ни поддержка партии не гарантированы. Причинный архив ограничен; изменения привлекательности разложены по компонентам, но вклад каждого отдельного события не вычисляется.\n\nДобавлены: бюджеты представительных домохозяйств (расходы, резерв, кредит, проценты, нехватка); решения о работе, курсе, заботе и взаимопомощи. Политики сравнивают действия по стоимости, характеру и сохранённой выборке, а не читают точные предпочтения всех жителей. Это прозрачный планировщик, не нейросетевые личности.\n\nЕщё не готовы: отдельные индивидуальные домохозяйства, подробный жизненный план каждого гражданина, второй тур, объединение партий, индивидуальное обучение стратегий и отложенные условные чудеса. P2P бога — два доверенных наблюдателя/участника одного мира с авторитетным создателем.\n\nСвободный ввод не означает произвольный исполняемый код. Неподдерживаемая механика блокируется. Нейросеть предлагает варианты; условия и приказы не превращаются в готовую победу партии.\n\nПодробный план и критерии: ПЛАН_0_8.md в репозитории.')
 
     def _set(self,widget,text):
         widget.configure(state='normal');widget.delete('1.0','end');widget.insert('1.0',text);widget.configure(state='disabled')
@@ -209,11 +214,16 @@ class App(tk.Tk):
     def refresh(self):
         selected={key:getattr(self,key).selection() for key in ('homes','actors','people','history')}
         s=self.world.state;v=self.world.summary()
+        self._set(self.story_text,'\n\n'.join(story.briefing(s)))
+        self.continue_btn.configure(state='normal' if s['story'] and s['story']['finished'] and not s['story']['continued'] else 'disabled')
+        if s['story']:self.goal_box.current(list(story.GOALS).index(s['story']['goal']))
+        if s['story'] and s['story']['finished'] and not s['story']['continued']:
+            self.running=False;self.run_btn.configure(text='▶ Наблюдать');self.tabs.select(self.frames['story'])
         self.header.configure(text='Неделя '+str(v['week'])+' · влияние '+str(round(v['energy']))+'/100')
         self.status.configure(text=str(v['population'])+' избирателей · '+str(v['cohorts'])+' когорт · выборы: неделя '+str(v['next_election'])+' · власть: '+(', '.join(v['government']) or 'вакантна')+(' · использован прямой редактор' if v['editor_used'] else ' · косвенное управление')+(' · P2P: '+('создатель' if self.net_host else 'друг') if self.link else ''))
         self.clear(self.districts)
         for did,d in s['districts'].items():self.districts.insert('', 'end',iid=did,values=(d['name'],d['population'],round(d['income']),round(d['jobs']),round(d['infra']),round(d['access'])))
-        self._set(self.city_feed,'ПОСЛЕДНИЕ СОБЫТИЯ\n\n'+'\n\n'.join('Неделя '+str(e['week'])+' · '+e['text'] for e in s['events'][-5:]))
+        self._set(self.city_feed,('НЕДЕЛЬНАЯ СВОДКА\n\n'+'\n\n'.join(s['story']['weekly'])+'\n\n' if s['story'] else '')+'ПОСЛЕДНИЕ СОБЫТИЯ\n\n'+'\n\n'.join('Неделя '+str(e['week'])+' · '+e['text'] for e in s['events'][-5:]))
         self.refresh_people();self.clear(self.homes)
         for c in s['cohorts']:
             h=c['household'];self.homes.insert('','end',iid=c['id'],values=(c['id'],s['districts'][c['district']]['name'],round(h['income']),round(h['needs']),round(h['balance']),round(h['savings']),round(h['debt']),living.ACTIONS[c['life']['action']]))
@@ -482,16 +492,33 @@ class App(tk.Tk):
         except RuleError as exc:messagebox.showwarning('Откат',str(exc),parent=self);return
         self.cancel();self.refresh()
 
+    def change_goal(self):
+        try:self.dispatch('story',{'op':'goal','value':list(story.GOALS)[self.goal_box.current()]})
+        except (RuleError,DataError) as exc:messagebox.showwarning('Обязательство',str(exc),parent=self);return
+        self.cancel();self.refresh()
+
+    def continue_story(self):
+        try:self.dispatch('story',{'op':'continue','value':None})
+        except (RuleError,DataError) as exc:messagebox.showwarning('История',str(exc),parent=self);return
+        self.cancel();self.refresh()
+
     def new_world(self):
-        if self.link:
-            messagebox.showinfo('Новый мир','Сначала отключите P2P.',parent=self);return
-        if not messagebox.askyesno('Новый мир','Начать новый мир? Несохранённые изменения будут потеряны.',parent=self):return
-        from tkinter import simpledialog
-        raw=simpledialog.askstring('Зерно города','Введите число для повторяемого города или оставьте пустым:',parent=self)
-        if raw is None:return
-        try:new=World(int(raw) if raw.strip() else None)
-        except (ValueError,RuleError) as exc:messagebox.showerror('Зерно',str(exc),parent=self);return
-        self.running=False;self.world=new;self.cancel();self.refresh()
+        if self.link:messagebox.showinfo('Новый мир','Сначала отключите P2P.',parent=self);return
+        self.running=False
+        dlg=tk.Toplevel(self);dlg.title('Новый мир — зачем вмешиваться?');dlg.geometry('670x410')
+        ttk.Label(dlg,text='Последняя зима комбината',font=('Arial',16,'bold')).pack(anchor='w',padx=16,pady=12)
+        ttk.Label(dlg,text='Предприятие даёт работу и загрязняет район. Помогите людям пережить перемены. Выборы изменят возможности, но их победитель не задан. История завершается после 26 недель; мир можно продолжить.',wraplength=620,justify='left').pack(anchor='w',padx=16,pady=8)
+        mode=tk.StringVar(value='last_winter')
+        ttk.Radiobutton(dlg,text='Сценарий с обязательством и эпилогом',variable=mode,value='last_winter').pack(anchor='w',padx=16,pady=4)
+        ttk.Radiobutton(dlg,text='Свободный мир — без обязательного финала',variable=mode,value='free').pack(anchor='w',padx=16,pady=4)
+        goal=ttk.Combobox(dlg,state='readonly',values=list(story.GOALS.values()),width=60);goal.pack(padx=16,pady=10);goal.current(0)
+        ttk.Label(dlg,text='Зерно города (число или пусто):').pack(anchor='w',padx=16);seed=ttk.Entry(dlg);seed.pack(fill='x',padx=16,pady=6)
+        def launch():
+            try:w=World(int(seed.get()) if seed.get().strip() else None,scenario=None if mode.get()=='free' else 'last_winter',goal=list(story.GOALS)[goal.current()])
+            except (ValueError,RuleError,DataError) as exc:messagebox.showerror('Новый мир',str(exc),parent=dlg);return
+            if not messagebox.askyesno('Новый мир','Несохранённые изменения будут потеряны. Начать?',parent=dlg):return
+            self.world=w;self.cancel();self.refresh();self.tabs.select(self.frames['story'] if w.state['story'] else self.frames['city']);dlg.destroy()
+        buttons=ttk.Frame(dlg);buttons.pack(fill='x',padx=16,pady=10);self._button(buttons,'Начать',launch);self._button(buttons,'Отмена',dlg.destroy)
 
     def save(self):
         self.running=False;path=filedialog.asksaveasfilename(initialdir=save_dir(),initialfile='god_world.json',defaultextension='.json',filetypes=[('Мир бога','*.json')])
@@ -545,6 +572,7 @@ class App(tk.Tk):
         elif op=='power':self.world.intervene(payload)
         elif op=='direct':self.world.direct(payload)
         elif op=='step':self.world.step(payload,True)
+        elif op=='story':self.world.story_action(payload['op'],payload['value'])
 
     def poll_network(self):
         if self.link:
@@ -583,7 +611,7 @@ class App(tk.Tk):
         fields={}
         for key,label,default in [('ip','IP создателя / VPN',''),('port','TCP-порт',str(DEFAULT_PORT)),('code','Код создателя',new_code())]:
             row=ttk.Frame(dlg);row.pack(fill='x',padx=12,pady=5);ttk.Label(row,text=label,width=23).pack(side='left');entry=ttk.Entry(row,width=40);entry.insert(0,default);entry.pack(side='left');fields[key]=entry
-        ttk.Label(dlg,text='Оба игрока используют 0.8.5. Ход времени и операции проверяет создатель.\nДля интернета — VPN или проброс порта. Пакеты НЕ шифруются; только доверенные друзья.\nПродолжение: создатель загружает обычный сейв мира и открывает новый код.',wraplength=580).pack(padx=12,pady=8)
+        ttk.Label(dlg,text='Оба игрока используют 0.8.6. Ход времени и операции проверяет создатель.\nДля интернета — VPN или проброс порта. Пакеты НЕ шифруются; только доверенные друзья.\nПродолжение: создатель загружает обычный сейв мира и открывает новый код.',wraplength=580).pack(padx=12,pady=8)
         def connect():
             try:
                 port=int(fields['port'].get());code=fields['code'].get().strip()
@@ -605,4 +633,4 @@ class App(tk.Tk):
 
 
 def main():
-    App().mainloop()
+    App(scenario='last_winter').mainloop()

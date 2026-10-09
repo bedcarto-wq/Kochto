@@ -119,14 +119,14 @@ class CivicTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'мир.json';self.w.save(p);other=World();other.load(p);self.w.step(16,False);other.step(16,False);self.assertEqual(self.w.state,other.state)
     def test_081_migration_preserves_households_and_seed(self):
-        old=copy.deepcopy(self.s);old.pop('civic');old['schema']=2
+        old=copy.deepcopy(self.s);old.pop('story',None);old.pop('civic');old['schema']=2
         for c in old['cohorts']:del c['service_pressure'];del c['service_cause']
         payload={'format':'god-world','schema':2,'rules':fingerprint(previous_data(self.d,2)),'state':old}
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'old.json';p.write_text(json.dumps({'payload':payload,'checksum':fingerprint(payload)},ensure_ascii=False),encoding='utf-8');other=World();other.load(p)
-            self.assertEqual(other.state['cohorts'][0]['household'],old['cohorts'][0]['household']);self.assertEqual(other.state['week_seed'],old['week_seed']);self.assertEqual(other.state['schema'],3)
+            self.assertEqual(other.state['cohorts'][0]['household'],old['cohorts'][0]['household']);self.assertEqual(other.state['week_seed'],old['week_seed']);self.assertEqual(other.state['schema'],4)
     def test_legacy_paid_project_not_paid_twice(self):
-        old=copy.deepcopy(self.s);old.pop('civic');old['schema']=2
+        old=copy.deepcopy(self.s);old.pop('story',None);old.pop('civic');old['schema']=2
         for c in old['cohorts']:del c['service_pressure'];del c['service_cause']
         old['projects']=[{'party':'labor','district':'factory','field':'infra','topic':'services','started':1,'finish':3,'quality':50,'gain':8}]
         payload={'format':'god-world','schema':2,'rules':fingerprint(previous_data(self.d,2)),'state':old}

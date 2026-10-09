@@ -107,7 +107,7 @@ class PoliticalPlannerTests(unittest.TestCase):
 
 class MigrationTests(unittest.TestCase):
     def old_save(self,path):
-        w=World(seed=871);s=copy.deepcopy(w.state);s['schema']=1;s.pop('civic')
+        w=World(seed=871);s=copy.deepcopy(w.state);s['schema']=1;s.pop('story');s.pop('civic')
         for c in s['cohorts']:del c['household'];del c['life'];del c['service_pressure'];del c['service_cause']
         for a in s['actors'].values():del a['decision']
         for p in s['parties'].values():del p['intel'];del p['intent']
