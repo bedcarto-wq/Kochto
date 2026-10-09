@@ -1,0 +1,371 @@
+{
+  "schema": 1,
+  "name": "Город помнит — наблюдатель и бог",
+  "axes": {
+    "economy": "Экономика",
+    "freedom": "Свободы",
+    "tradition": "Традиции",
+    "ecology": "Экология"
+  },
+  "topics": {
+    "jobs": {
+      "name": "Работа и доход",
+      "aliases": [
+        "работ",
+        "доход",
+        "завод",
+        "занятост"
+      ],
+      "axis": "economy"
+    },
+    "services": {
+      "name": "ЖКХ и инфраструктура",
+      "aliases": [
+        "тариф",
+        "отоплен",
+        "дорог",
+        "жкх",
+        "ремонт"
+      ],
+      "axis": "economy"
+    },
+    "ecology": {
+      "name": "Экология",
+      "aliases": [
+        "эколог",
+        "загрязнен",
+        "воздух",
+        "природ"
+      ],
+      "axis": "ecology"
+    },
+    "rights": {
+      "name": "Права и свободы",
+      "aliases": [
+        "прав",
+        "свобод",
+        "полици"
+      ],
+      "axis": "freedom"
+    },
+    "tradition": {
+      "name": "Традиции и община",
+      "aliases": [
+        "традиц",
+        "религи",
+        "общин",
+        "вер"
+      ],
+      "axis": "tradition"
+    }
+  },
+  "districts": {
+    "factory": {
+      "name": "Заводской район",
+      "aliases": [
+        "заводск",
+        "промышленн"
+      ],
+      "population": 6000,
+      "income": 43,
+      "infra": 55,
+      "jobs": 60,
+      "pollution": 65,
+      "access": 75
+    },
+    "center": {
+      "name": "Центр",
+      "aliases": [
+        "центр"
+      ],
+      "population": 6000,
+      "income": 68,
+      "infra": 73,
+      "jobs": 75,
+      "pollution": 25,
+      "access": 92
+    },
+    "riverside": {
+      "name": "Заречье",
+      "aliases": [
+        "заречь",
+        "зареч",
+        "речн"
+      ],
+      "population": 6000,
+      "income": 48,
+      "infra": 48,
+      "jobs": 58,
+      "pollution": 35,
+      "access": 62
+    },
+    "outskirts": {
+      "name": "Окраина",
+      "aliases": [
+        "окраин",
+        "пригород"
+      ],
+      "population": 6000,
+      "income": 36,
+      "infra": 40,
+      "jobs": 50,
+      "pollution": 20,
+      "access": 52
+    }
+  },
+  "parties": {
+    "labor": {
+      "name": "Союз труда",
+      "aliases": [
+        "союз труда",
+        "труд",
+        "рабочая партия"
+      ],
+      "ideology": {
+        "economy": -65,
+        "freedom": 5,
+        "tradition": 0,
+        "ecology": 25
+      },
+      "leader": "a0",
+      "color": "#B84A49"
+    },
+    "civic": {
+      "name": "Гражданский союз",
+      "aliases": [
+        "гражданск",
+        "либерал"
+      ],
+      "ideology": {
+        "economy": 50,
+        "freedom": 70,
+        "tradition": -50,
+        "ecology": 30
+      },
+      "leader": "a1",
+      "color": "#367BAA"
+    },
+    "order": {
+      "name": "Порядок и традиция",
+      "aliases": [
+        "порядок",
+        "традиционная партия"
+      ],
+      "ideology": {
+        "economy": 5,
+        "freedom": -65,
+        "tradition": 75,
+        "ecology": -15
+      },
+      "leader": "a2",
+      "color": "#99743C"
+    }
+  },
+  "tags": {
+    "student": "Студенты",
+    "elder": "Пенсионеры",
+    "business": "Предприниматели",
+    "worker": "Рабочие",
+    "parent": "Родители",
+    "single": "Одинокие",
+    "secular": "Нерелигиозные",
+    "religious": "Религиозные",
+    "lower": "Низший класс",
+    "middle": "Средний класс",
+    "upper": "Высший класс"
+  },
+  "aliases": {
+    "student": [
+      "студент",
+      "молодеж"
+    ],
+    "elder": [
+      "пенсионер",
+      "пожил",
+      "ветеран"
+    ],
+    "business": [
+      "предпринимател",
+      "бизнес",
+      "торговц"
+    ],
+    "worker": [
+      "рабоч",
+      "работник"
+    ],
+    "parent": [
+      "родител",
+      "семь"
+    ],
+    "single": [
+      "одинок"
+    ],
+    "secular": [
+      "нерелигиозн",
+      "светск"
+    ],
+    "religious": [
+      "религиозн",
+      "верующ"
+    ],
+    "lower": [
+      "низший класс",
+      "бедн"
+    ],
+    "middle": [
+      "средний класс"
+    ],
+    "upper": [
+      "высший класс",
+      "богат"
+    ]
+  },
+  "rules": {
+    "election_period": 26,
+    "first_election": 12,
+    "threshold": 5,
+    "seats": 15,
+    "election_system": "proportional",
+    "energy_max": 100,
+    "energy_regen": 12,
+    "history_limit": 600,
+    "cohort_limit": 256
+  },
+  "powers": {
+    "attention": {
+      "name": "Усилить внимание",
+      "aliases": [
+        "вниман",
+        "повестк",
+        "обсужда",
+        "заметн"
+      ],
+      "field": "topic",
+      "cost": 8
+    },
+    "information": {
+      "name": "Ускорить распространение",
+      "aliases": [
+        "распростран",
+        "информац",
+        "узна",
+        "новост"
+      ],
+      "field": "topic",
+      "cost": 10
+    },
+    "reveal": {
+      "name": "Раскрыть реальный факт",
+      "aliases": [
+        "раскры",
+        "раскрыт",
+        "разоблач",
+        "обнаруж",
+        "доказатель"
+      ],
+      "field": "event",
+      "cost": 14
+    },
+    "economy": {
+      "name": "Изменить достаток",
+      "aliases": [
+        "процвет",
+        "достат",
+        "благослов",
+        "доход",
+        "бедност"
+      ],
+      "field": "income",
+      "cost": 15
+    },
+    "solidarity": {
+      "name": "Усилить взаимопомощь",
+      "aliases": [
+        "взаимопомощ",
+        "солидар",
+        "объедин",
+        "помощ"
+      ],
+      "field": "solidarity",
+      "cost": 10
+    },
+    "meeting": {
+      "name": "Свести сообщества",
+      "aliases": [
+        "свести",
+        "встреч",
+        "познаком",
+        "общени"
+      ],
+      "field": "links",
+      "cost": 10
+    },
+    "weather": {
+      "name": "Изменить погоду",
+      "aliases": [
+        "мороз",
+        "бур",
+        "засух",
+        "лив",
+        "наводнен",
+        "дожд",
+        "погод"
+      ],
+      "field": "weather",
+      "cost": 18
+    },
+    "access": {
+      "name": "Изменить доступность",
+      "aliases": [
+        "транспорт",
+        "доступност",
+        "проезд",
+        "путь"
+      ],
+      "field": "access",
+      "cost": 12
+    },
+    "dream": {
+      "name": "Послать знамение",
+      "aliases": [
+        "знамен",
+        "сон",
+        "сновид",
+        "чуд"
+      ],
+      "field": "faith",
+      "cost": 12
+    },
+    "luck": {
+      "name": "Изменить удачу",
+      "aliases": [
+        "удач",
+        "везен",
+        "совпаден"
+      ],
+      "field": "luck",
+      "cost": 14
+    },
+    "health": {
+      "name": "Исцелить жителей",
+      "aliases": [
+        "исцел",
+        "здоров",
+        "болезн"
+      ],
+      "field": "health",
+      "cost": 15
+    },
+    "infrastructure": {
+      "name": "Восстановить инфраструктуру",
+      "aliases": [
+        "восстанов",
+        "почин",
+        "отремонт",
+        "инфраструкт"
+      ],
+      "field": "infra",
+      "cost": 20
+    }
+  }
+}

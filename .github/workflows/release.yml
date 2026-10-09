@@ -9,11 +9,12 @@ on:
     types: [published]
   workflow_dispatch:
   push:
-    branches: [main, feature/neural-ai-075]
+    branches: [main, feature/god-world-080]
     paths:
       - 'Kocto/gorod/**'
       - 'Kocto/tests/test_gorod*'
       - 'Kocto/gorod_window.py'
+      - 'Kocto/gorod_console.py'
       - 'Kocto/ИГРОКУ.txt'
       - '.github/workflows/release.yml'
 
@@ -63,7 +64,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           New-Item -ItemType Directory -Force dist/package/GorodPomnit | Out-Null
           Copy-Item dist/GorodPomnit.exe, dist/GorodPomnit-console.exe dist/package/GorodPomnit/
-          Copy-Item ИГРОКУ.txt, Диагностика_графики.bat dist/package/GorodPomnit/
+          Copy-Item ИГРОКУ.txt, ПЛАН_0_8.md, Диагностика_графики.bat dist/package/GorodPomnit/
 
       - name: Архив
         shell: pwsh
@@ -80,7 +81,7 @@ jobs:
           $folder = Join-Path $clean "GorodPomnit"
           Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
           Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
-          "Тест`nм`n30 30 30`nвыход`n" | & (Join-Path $folder "GorodPomnit-console.exe")
+          "статус`nнеделя`nвыход`n" | & (Join-Path $folder "GorodPomnit-console.exe")
           if ($LASTEXITCODE -ne 0) { Write-Error "Консоль из архива не запускается"; exit 1 }
           # Only the GUI exe, with no _internal folder or sibling console dependencies.
           $single = Join-Path $clean "Только один exe"
@@ -122,8 +123,8 @@ jobs:
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag --repo "${{ github.repository }}" --target "${{ github.sha }}" --prerelease `
-              --title "Город помнит $env:VERSION — локальная нейросеть и свои кнопки (предварительная)" `
-              --notes "0.7.5: локальная MLP-нейросеть распознавания намерений (Python stdlib, без облака), объяснение кандидатов и память исправлений. Вставка: кнопка, Ctrl+V, Shift+Insert, контекстное меню. Свои именованные кнопки-шаблоны: создание, редактирование, удаление, сохранение рядом с exe. Кнопки готовят разбор, но не выполняют ход без подтверждения. Старые сохранения читаются; обоим P2P-игрокам нужна 0.7.5. Python, Pillow, веса модели и изображения включены. Проверки Windows: тесты, нейросеть, буфер, кнопки, окно, графика, TCP и запуск из папки с кириллицей."
+              --title "Город помнит $env:VERSION — бог и автономный город (основа) (предварительная)" `
+              --notes "0.8.0 — первая рабочая основа политического симулятора бога. Автономный город, 144 когорты с пересекающимися признаками, идеологии, привлекательность партий и отдельная явка; партии, обещания, проекты, коалиции и три правила выборов. Косвенные силы через свободный ввод/конструктор и отдельный прямой редактор с откатом. Сохранения нового мира отделены от режима кандидата. P2P двух богов без выделенного сервера; старый режим доступен отдельно. Это НЕ полная реализация всех 132 предложений: упрощения и план опубликованы. Python, Pillow, модели и изображения внутри; Windows-проверки включают оба режима."
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
           gh release upload $tag "${{ env.ZIP }}" --repo "${{ github.repository }}" --clobber

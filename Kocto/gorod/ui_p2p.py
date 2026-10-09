@@ -29,6 +29,8 @@ class P2PMixin:
     def close_app(self):
         if self.link:
             self.link.close()
+        for timer in self.tk.call('after','info'):
+            self.after_cancel(timer)
         self.destroy()
 
     def can_act(self):

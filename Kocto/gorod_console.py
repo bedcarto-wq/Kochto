@@ -1,7 +1,10 @@
 """Точка входа для сборки GorodPomnit-console.exe. Из исходников: python gorod_console.py"""
 import sys
 
-from gorod.console import main
+if '--legacy' in sys.argv:
+    from gorod.console import main
+else:
+    from gorod.god.console import main
 
 if __name__ == "__main__":
     for stream in (sys.stdin, sys.stdout, sys.stderr):  # кириллица в любой консоли Windows
