@@ -359,6 +359,126 @@
       "text": "Восстановить инфраструктуру в Заводском районе",
       "action": "infrastructure",
       "split": "test"
+    },
+    {
+      "text": "Создать возможность встречи a0 и a3",
+      "action": "encounter",
+      "split": "train"
+    },
+    {
+      "text": "Устроить встречу персонажей a1 и a2",
+      "action": "encounter",
+      "split": "train"
+    },
+    {
+      "text": "Свести персонажей a3 и a5",
+      "action": "encounter",
+      "split": "train"
+    },
+    {
+      "text": "Возможность встречи редактора и лидера",
+      "action": "encounter",
+      "split": "train"
+    },
+    {
+      "text": "Встреча персонажей в Центре",
+      "action": "encounter",
+      "split": "train"
+    },
+    {
+      "text": "Пусть собеседники встретятся",
+      "action": "encounter",
+      "split": "test"
+    },
+    {
+      "text": "Облегчить обнаружение документа D1",
+      "action": "discovery",
+      "split": "train"
+    },
+    {
+      "text": "Найти документ D2",
+      "action": "discovery",
+      "split": "train"
+    },
+    {
+      "text": "Доступ к документу D3",
+      "action": "discovery",
+      "split": "train"
+    },
+    {
+      "text": "Обнаружить документ о проекте",
+      "action": "discovery",
+      "split": "train"
+    },
+    {
+      "text": "Упростить обнаружение документа",
+      "action": "discovery",
+      "split": "train"
+    },
+    {
+      "text": "Сделать документ доступным для проверки",
+      "action": "discovery",
+      "split": "test"
+    },
+    {
+      "text": "Освободить время рабочих",
+      "action": "free_time",
+      "split": "train"
+    },
+    {
+      "text": "Добавить свободное время родителям",
+      "action": "free_time",
+      "split": "train"
+    },
+    {
+      "text": "Облегчить бытовую нагрузку в Заречье",
+      "action": "free_time",
+      "split": "train"
+    },
+    {
+      "text": "Дать свободное время студентам",
+      "action": "free_time",
+      "split": "train"
+    },
+    {
+      "text": "Освободить время пенсионеров",
+      "action": "free_time",
+      "split": "train"
+    },
+    {
+      "text": "Помочь жителям найти время для собрания",
+      "action": "free_time",
+      "split": "test"
+    },
+    {
+      "text": "Облегчить координацию объединения G1",
+      "action": "coordination",
+      "split": "train"
+    },
+    {
+      "text": "Координация объединения G2",
+      "action": "coordination",
+      "split": "train"
+    },
+    {
+      "text": "Помочь координации объединения в Центре",
+      "action": "coordination",
+      "split": "train"
+    },
+    {
+      "text": "Облегчить координацию рабочих",
+      "action": "coordination",
+      "split": "train"
+    },
+    {
+      "text": "Улучшить координацию объединения",
+      "action": "coordination",
+      "split": "train"
+    },
+    {
+      "text": "Согласовать усилия инициативной группы",
+      "action": "coordination",
+      "split": "test"
     }
   ]
 }

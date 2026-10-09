@@ -1,7 +1,7 @@
 import copy,json,random,tempfile,unittest
 from pathlib import Path
 from gorod.engine import DataError
-from gorod.god.world import World,fingerprint,validate_state,event
+from gorod.god.world import World,fingerprint,validate_state,event,previous_data,SCHEMA
 from gorod.god import living,agents,network
 
 class HouseholdTests(unittest.TestCase):
@@ -107,18 +107,18 @@ class PoliticalPlannerTests(unittest.TestCase):
 
 class MigrationTests(unittest.TestCase):
     def old_save(self,path):
-        w=World(seed=871);s=copy.deepcopy(w.state);s['schema']=1
-        for c in s['cohorts']:del c['household'];del c['life']
+        w=World(seed=871);s=copy.deepcopy(w.state);s['schema']=1;s.pop('civic')
+        for c in s['cohorts']:del c['household'];del c['life'];del c['service_pressure'];del c['service_cause']
         for a in s['actors'].values():del a['decision']
         for p in s['parties'].values():del p['intel'];del p['intent']
-        data=copy.deepcopy(w.data);data.pop('living');data['schema']=1
+        data=previous_data(w.data,1)
         obj={'payload':{'format':'god-world','schema':1,'rules':fingerprint(data),'state':s}};obj['checksum']=fingerprint(obj['payload']);path.write_text(json.dumps(obj,ensure_ascii=False),encoding='utf-8');return s,obj
     def test_080_migration_preserves_world_and_seed(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'old.json';old,_=self.old_save(p);w=World(seed=1);w.load(p)
             for k in ('population','id','ideology','trust'):self.assertEqual(old['cohorts'][0][k],w.state['cohorts'][0][k])
             for k in ('seed','week_seed','week','events','elections','governing'):self.assertEqual(old[k],w.state[k])
-            self.assertEqual(w.state['schema'],2);self.assertTrue(w.migration_notice);self.assertIn('household',w.state['cohorts'][0]);w.step()
+            self.assertEqual(w.state['schema'],SCHEMA);self.assertTrue(w.migration_notice);self.assertIn('household',w.state['cohorts'][0]);w.step()
     def test_unknown_legacy_rules_rejected_atomically(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'old.json';_,obj=self.old_save(p);obj['payload']['rules']='custom';obj['checksum']=fingerprint(obj['payload']);p.write_text(json.dumps(obj),encoding='utf-8');w=World(seed=1);before=copy.deepcopy(w.state)

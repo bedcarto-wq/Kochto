@@ -10,9 +10,10 @@ import random
 from pathlib import Path
 from ..engine import DataError, RuleError, DATA_DIR, load_json
 
-SCHEMA = 2
+SCHEMA = 3
+RULES_081 = '843560ea77b761791b698f64ce713e02bf8ed31067b40e1f32fcadb9e83c48cd'
 LEGACY_RULES = 'b87796db80f1ae89dd7a1d26350e685327932aa2b43a4c169a06587b0a07c00b'
-from . import living, agents
+from . import living, agents, civic
 
 
 def clamp(x, low=0.0, high=100.0):
@@ -39,18 +40,28 @@ def load_data():
                 if type(d[key]) not in (int,float) or not math.isfinite(d[key]) or not 0<=d[key]<=100:raise ValueError('район '+key)
         for topic in data['topics'].values():
             if topic['axis'] not in data['axes'] or not topic['aliases']:raise ValueError('тема')
-        if set(data['powers'])!={'attention','information','reveal','economy','solidarity','meeting','weather','access','dream','luck','health','infrastructure'}:raise ValueError('поддерживаемые механизмы')
+        if set(data['powers'])!={'attention','information','reveal','economy','solidarity','meeting','weather','access','dream','luck','health','infrastructure','encounter','discovery','free_time','coordination'}:raise ValueError('поддерживаемые механизмы')
         for power in data['powers'].values():
             if type(power['cost']) is not int or not 1<=power['cost']<=100 or not power['aliases']:raise ValueError('сила')
         cfg=data['living']
         if set(cfg)!={'base_income','income_factor','family_earners','family_cost','pension_factor','food','housing','housing_income','transport','health','dependents','study_fee','side_income','interest','credit_weeks'}:raise ValueError('бюджеты домохозяйств')
         if any(type(v) not in (int,float) or not math.isfinite(v) or v<=0 for v in cfg.values()) or cfg['interest']>0.1 or cfg['credit_weeks']>52:raise ValueError('финансовые параметры')
+        cc=data['civic']
+        if set(cc)!={'demand','project_cost','upkeep'} or set(cc['demand'])!=set(civic.KINDS) or any(type(v) not in (int,float) or not 0<v<=1 for v in cc['demand'].values()) or not 1<=cc['project_cost']<=100 or not 0<cc['upkeep']<=10:raise ValueError('параметры учреждений')
         rules=data['rules']
         if type(rules['election_period']) is not int or not 4<=rules['election_period']<=104 or type(rules['first_election']) is not int or rules['first_election']<1:raise ValueError('календарь')
         if type(rules['seats']) is not int or rules['seats']<4 or not 0<=rules['threshold']<=25 or rules['election_system'] not in ('proportional','majoritarian','mixed'):raise ValueError('выборы')
         if rules['energy_max']!=100 or not 0<=rules['energy_regen']<=100 or rules['cohort_limit']<144:raise ValueError('лимиты')
     except (KeyError,TypeError,ValueError) as exc:raise DataError('god_world: '+str(exc)) from exc
     return data
+
+
+def previous_data(data,schema):
+    old=copy.deepcopy(data);old.pop('civic')
+    for key in civic.NEW_POWERS:old['powers'].pop(key)
+    old['schema']=schema
+    if schema==1:old.pop('living')
+    return old
 
 
 def base_attraction(ideology,party,weights):
@@ -64,6 +75,7 @@ def event(s,kind,text,district='all',topic='',party='',causes=None,truth=True):
        'causes':list(causes or []),'truth':bool(truth),'reach':{},'salience':1.0}
     s['event_id']+=1;s['events'].append(e)
     del s['events'][:-600]
+    civic.archive(s,e)
     return e
 
 
@@ -112,6 +124,7 @@ def new_state(data,seed):
     s['links']={a:{b:(1.0 if a==b else .35 if abs(ids.index(a)-ids.index(b))==1 else .15) for b in ids} for a in ids}
     for c in s['cohorts']:living.initialize(c)
     agents.initialize(s)
+    civic.initialize(s,data);civic.evaluate_institutions(s,data,event,False)
     event(s,'origin','Город живёт самостоятельно. Первые выборы — на неделе '+str(data['rules']['first_election'])+'.')
     return s
 
@@ -122,6 +135,7 @@ def attraction(s,c,pid):
     actor=s['actors'].get(p['leader'],{})
     components={'ideology':base,'trust':(c['trust'].get(pid,50)-50)*.28,'memory':c['memory'].get(pid,0),
                 'leader':(actor.get('influence',50)-50)*.06,'familiarity':(c['familiarity'].get(pid,50)-50)*.05,
+                'civic':civic.member_attraction(s,c,pid),
                 'identity':c['loyalty']*.10*(.5+c['norm']/100) if c['identity']==pid else 0.0,'editor':c.get('editor_bonus',{}).get(pid,0)}
     return clamp(sum(components.values())),components
 
@@ -221,14 +235,17 @@ def apply_power(s,data,command):
     if key=='reveal':
         source=next((e for e in s['events'] if e['id']==command.get('event_id')),None)
         if not source or not source['truth']:raise RuleError('Можно раскрыть только существующий проверяемый факт; выберите событие')
+    if key in ('encounter','discovery','coordination') and strength<0:raise RuleError('Этот механизм создаёт возможность; нужна положительная сила')
     s['energy']-=cost
     cause=event(s,'miracle',data['powers'][key]['name']+': '+target+'; сила '+str(strength)+', срок '+str(duration)+' нед.',target,topic)
     eff={'power':key,'target':target,'topic':topic,'strength':strength,'until':s['week']+duration-1,'cause':cause['id']}
+    eff.update({k:command[k] for k in ('document_id','actor_a','actor_b','association_id') if k in command})
     s['effects'].append(eff)
+    if key in civic.NEW_POWERS:civic.power(s,data,{**command,'strength':strength,'duration':duration,'target':target},cause)
     if key=='reveal':
         source['salience']+=abs(strength)/10
         source['revealed']=True
-        cause['causes']=[source['id']]
+        cause['causes'].append(source['id'])
     if key=='meeting':
         districts={c['district'] for c in cohorts}
         for a in districts:
@@ -293,7 +310,7 @@ def information(s,data,rng):
             if now>.10 and e['id'] not in c['known']:
                 c['known'].append(e['id']);del c['known'][:-80]
                 if e['party']:
-                    magnitude={'promise_kept':5,'promise_partial':1,'promise_broken':-6,'policy':2,'campaign':1,'scandal':-5,'investigation':-5,'aid':2}.get(e['kind'],0)
+                    magnitude={'promise_kept':5,'promise_partial':1,'promise_broken':-6,'policy':2,'campaign':1,'opening_claim':2,'scandal':-5,'investigation':-5,'aid':2}.get(e['kind'],0)
                     if not e['truth']:magnitude*=.4
                     importance=.5+c['attention'].get(e['topic'],20)/50
                     if e['kind']=='policy' and e.get('position') is not None:
@@ -301,12 +318,6 @@ def information(s,data,rng):
                     pid=e['party'];c['memory'][pid]=clamp(c['memory'].get(pid,0)+magnitude*importance,-30,30)
                     c['trust'][pid]=clamp(c['trust'].get(pid,50)+magnitude*.7)
                     c['perceived'][pid]=dict(s['parties'][pid]['ideology'])
-        if age==2 and e['truth'] and e['kind'] in ('scandal','crisis','promise_broken'):
-            investigator=next((a for a in s['actors'].values() if a['alive'] and a['role']=='journalist'),None)
-            if investigator and rng.random()<investigator['competence']/120:
-                piece=event(s,'investigation','Редактор проверила: '+e['text'],e['district'],e['topic'],e['party'],[e['id']])
-                piece['salience']=1.3
-                s['media_trust']['paper']=clamp(s['media_trust']['paper']+1)
 
 
 def politics(s,data,rng):
@@ -314,35 +325,22 @@ def politics(s,data,rng):
 
 
 def government(s,data,rng):
-    s['budget']=clamp(s['budget']+7,0,300)
-    if s['governing'] and s['week']%4==0:
-        pid=s['governing'][0];p=s['parties'][pid]
-        if not p['active']:return
-        open_promises=[x for x in s['promises'] if x['party']==pid and x['status']=='open']
-        if open_promises:promise=min(open_promises,key=lambda x:x['deadline']);did=promise['district'];field=promise['field'];topic=promise['topic']
-        else:
-            did=min(s['districts'],key=lambda d:s['districts'][d]['infra']);field='infra';topic='services'
-        if s['budget']>=22:
-            s['budget']-=22
-            project={'party':pid,'district':did,'field':field,'topic':topic,'started':s['week'],'finish':s['week']+2,'quality':p['competence'],'gain':5+p['competence']/15}
-            s['projects'].append(project)
-            e=event(s,'policy',p['name']+' выделяет средства: '+data['topics'][topic]['name'].lower()+' / '+s['districts'][did]['name'],did,topic,pid)
-            e['position']=p['ideology'][data['topics'][topic]['axis']]
-    for project in list(s['projects']):
-        if project['finish']<=s['week']:
-            d=s['districts'][project['district']];factor=.5 if d['weather']>20 else 1
-            d[project['field']]=clamp(d[project['field']]+project['gain']*factor)
-            event(s,'aid','Завершён проект: '+data['topics'][project['topic']]['name']+' / '+d['name'],project['district'],project['topic'],project['party'])
-            s['projects'].remove(project)
+    civic.project_tick(s,data,rng,event)
     for promise in s['promises']:
         if promise['status']!='open':continue
-        gain=s['districts'][promise['district']][promise['field']]-promise['baseline']
+        if promise.get('institution'):
+            gain=promise['baseline']-s['civic']['institutions'][promise['institution']]['delay']
+        else:gain=s['districts'][promise['district']][promise['field']]-promise['baseline']
         if gain>=promise['goal']:status='kept'
         elif s['week']>=promise['deadline']:status='partial' if gain>promise['goal']*.4 else 'broken'
         else:continue
         promise['status']=status
-        event(s,'promise_'+status,s['parties'][promise['party']]['name']+': обещание '+{'kept':'выполнено','partial':'выполнено частично','broken':'сорвано'}[status],promise['district'],promise['topic'],promise['party'])
-        s['parties'][promise['party']]['trust']=clamp(s['parties'][promise['party']]['trust']+{'kept':4,'partial':0,'broken':-5}[status])
+        contributors=[p for p in s['projects'] if p['party']==promise['party'] and p['stage']=='operating' and p['completed']>=promise['made'] and p['district']==promise['district'] and (not promise.get('institution') or p['institution']==promise['institution'])]
+        credited=bool(contributors);promise['credited']=credited
+        kind='promise_'+status if status=='broken' or credited else 'promise_satisfied'
+        text=s['parties'][promise['party']]['name']+': '+('условия улучшились, но собственное исполнение не подтверждено' if status!='broken' and not credited else {'kept':'обещание выполнено своим проектом','partial':'обещание выполнено частично','broken':'обещание сорвано'}[status])
+        event(s,kind,text,promise['district'],promise['topic'],promise['party'],[p['last_event'] for p in contributors])
+        s['parties'][promise['party']]['trust']=clamp(s['parties'][promise['party']]['trust']+({'kept':4,'partial':0,'broken':-5}[status] if status=='broken' or credited else 0))
     del s['promises'][:-200]
 
 
@@ -519,12 +517,23 @@ def direct(s,data,command):
 
 def advance(s,data):
     rng=random.Random(s['week_seed']);start=s['event_id']
+    before={(c['id'],pid):attraction(s,c,pid) for c in s['cohorts'] for pid,p in s['parties'].items() if p['active']}
     power_effects(s,data)
     society(s,data,rng)
     living.tick(s,data,rng,event)
+    civic.evaluate_institutions(s,data,event)
+    for e in s['effects']:
+        if e['power']=='free_time' and e['until']>=s['week']:
+            for c in affected(s,e['target']):
+                c['household']['free_time']=clamp(c['household']['free_time']+e['strength']*.5)
+                c['engagement']=clamp(c['engagement']+e['strength']*.01)
+    civic.associations(s,data,rng,event)
+    civic.meetings(s,data,rng,event)
     politics(s,data,rng)
     government(s,data,rng)
+    civic.investigations(s,data,rng,event)
     information(s,data,rng)
+    civic.record_changes(s,before,attraction,start)
     result=None
     if s['week']>=s['rules'].get('next_election',s['rules']['first_election']):result=election(s,data,rng)
     s['energy']=clamp(s['energy']+s['rules']['energy_regen'],0,s['rules']['energy_max'])
@@ -543,7 +552,8 @@ def validate_state(s,data,legacy=False):
         elif not isinstance(x,(str,int,float,bool,type(None))):raise DataError('god save: неизвестный тип')
     walk(s)
     template_keys={'schema','seed','week_seed','week','revision','energy','event_id','districts','parties','cohorts','actors','firms','links','events','powers','promises','projects','movements','elections','governing','budget','rules','effects','direct_log','editor_used','next_party','polls','media_trust'}
-    if not isinstance(s,dict) or set(s)!=template_keys or type(s['schema']) is not int or s['schema']!=(1 if legacy else SCHEMA):raise DataError('god save: схема нового режима, не сохранение кандидата')
+    if not legacy:template_keys.add('civic')
+    if not isinstance(s,dict) or set(s)!=template_keys or type(s['schema']) is not int or s['schema']!=(int(legacy) if legacy else SCHEMA):raise DataError('god save: схема нового режима, не сохранение кандидата')
     for key in ('seed','week_seed','week','revision','event_id','next_party'):
         if type(s[key]) is not int or s[key]<0:raise DataError('god save: '+key)
     if s['week']<1 or not 0<=s['energy']<=s['rules']['energy_max']:raise DataError('god save: время / влияние')
@@ -609,9 +619,10 @@ def validate_state(s,data,legacy=False):
         if x['party'] not in s['parties'] or x['district'] not in s['districts'] or x['topic'] not in data['topics'] or x['status'] not in ('open','kept','partial','broken','cancelled'):raise DataError('god save: обещание')
     for x in s['projects']:
         if x['party'] not in s['parties'] or x['district'] not in s['districts'] or x['field'] not in ('infra','jobs'):raise DataError('god save: проект')
-    if not legacy:
+    if not legacy or legacy==2:
         for c in s['cohorts']:living.validate(c,numeric)
         agents.validate(s,data,numeric)
+    if not legacy:civic.validate(s,data,numeric)
     return s
 
 
@@ -634,7 +645,7 @@ class World:
         return reports
 
     def intervene(self,command):
-        if not isinstance(command,dict) or set(command)-{'power','target','topic','strength','duration','event_id'}:raise RuleError('Неверная структура вмешательства')
+        if not isinstance(command,dict) or set(command)-{'power','target','topic','strength','duration','event_id','document_id','actor_a','actor_b','association_id'}:raise RuleError('Неверная структура вмешательства')
         scratch=copy.deepcopy(self.state);out=apply_power(scratch,self.data,command);scratch['revision']+=1
         validate_state(scratch,self.data);self.state=scratch;return out
 
@@ -664,13 +675,16 @@ class World:
             obj=load_json(path);payload=obj['payload']
             if obj['checksum']!=fingerprint(payload) or payload['format']!='god-world':raise DataError('god save: неверный формат или контрольная сумма')
             scratch=copy.deepcopy(payload['state']);notice=''
-            if payload['schema']==1 and payload['rules']==LEGACY_RULES:
-                old_data=copy.deepcopy(self.data);old_data.pop('living');old_data['schema']=1
-                if fingerprint(old_data)!=LEGACY_RULES:raise DataError('Миграция доступна только для штатных правил 0.8.0 → 0.8.1')
-                validate_state(scratch,old_data,legacy=True)
-                for c in scratch['cohorts']:living.initialize(c,scratch['week'])
-                agents.initialize(scratch);scratch['schema']=SCHEMA
-                notice='Сейв 0.8.0 перенесён в 0.8.1. Население, партии, история и seed сохранены; бюджеты и планы инициализированы, а не восстановлены из прошлого. Сохраните под новым именем: обратной совместимости нет.'
+            if payload['schema'] in (1,2) and payload['rules'] in (LEGACY_RULES,RULES_081):
+                expected=LEGACY_RULES if payload['schema']==1 else RULES_081
+                old_data=previous_data(self.data,payload['schema'])
+                if payload['rules']!=expected or fingerprint(old_data)!=expected:raise DataError('Перенос доступен только для штатных правил 0.8.0/0.8.1')
+                validate_state(scratch,old_data,legacy=payload['schema'])
+                if payload['schema']==1:
+                    for c in scratch['cohorts']:living.initialize(c,scratch['week'])
+                    agents.initialize(scratch)
+                civic.initialize(scratch,self.data);civic.evaluate_institutions(scratch,self.data,event,False);scratch['schema']=SCHEMA
+                notice='Мир перенесён в 0.8.5. Старые данные и seed сохранены; учреждения и новые процессы инициализированы без выдуманного прошлого. Оплаченные проекты продолжаются без повторного списания бюджета. Сохраните под новым именем; обратной совместимости нет.'
             elif payload['schema']!=SCHEMA or payload['rules']!=fingerprint(self.data):raise DataError('god save: неподдерживаемая схема или правила')
             validate_state(scratch,self.data)
         except (OSError,KeyError,TypeError,ValueError) as exc:raise DataError('Не удалось загрузить мир: '+str(exc)) from exc

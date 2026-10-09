@@ -81,8 +81,11 @@ def perform(s,data,pid,choice,rng,emit):
     elif action=='promise':
         field='infra' if t=='services' else 'jobs';baseline=s['districts'][did][field]
         promise={'id':'p'+str(len(s['promises']))+'_'+str(s['week']),'party':pid,'district':did,'topic':t,'field':field,'baseline':baseline,'goal':8.0,'deadline':s['week']+8,'status':'open','made':s['week']}
+        if t=='services' and 'civic' in s:
+            i=max((i for i in s['civic']['institutions'].values() if i['district']==did),key=lambda i:(i['delay'],i['id']))
+            promise.update({'institution':i['id'],'baseline':i['delay'],'goal':max(.4,i['delay']*.25),'deadline':s['week']+12})
         s['promises'].append(promise)
-        e=emit(s,'promise',p['name']+' обещает улучшить '+data['topics'][t]['name'].lower()+' в '+s['districts'][did]['name']+' за 8 недель',did,t,pid)
+        e=emit(s,'promise',p['name']+' обещает улучшить '+data['topics'][t]['name'].lower()+' в '+s['districts'][did]['name']+' за '+str(promise['deadline']-s['week'])+' недель',did,t,pid)
     elif action=='listen':
         p['intel']=survey(s,data,pid,rng)
         e=emit(s,'listening',p['name']+' выслушивает жителей и обновляет неполную картину их нужд',did,t,pid)
@@ -108,6 +111,8 @@ def politics(s,data,rng,emit):
         # No passive omniscient weekly re-reading of all cohorts.
         if not p['intel']['districts']:p['intel']=survey(s,data,pid,rng)
         if s['week']%3==0:
+            from . import civic
+            civic.political_response(s,data,pid,rng,emit)
             chosen,options=choose(s,data,pid);e=perform(s,data,pid,chosen,rng,emit)
             a['decision']={'week':s['week'],'action':chosen['action'],'target':chosen['target'],'topic':chosen['topic'],'reason':chosen['reason'],'options':options,'event':e['id'] if e else 0}
         if s['week']%13==0 and p['intel']['share']<18 and p['intel']['public_axes']:
