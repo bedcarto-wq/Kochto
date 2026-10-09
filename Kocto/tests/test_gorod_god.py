@@ -119,17 +119,17 @@ class GodWorldTest(unittest.TestCase):
     def test_bad_save_does_not_change_current_world(self):
         before=copy.deepcopy(self.w.state)
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/'world.json';self.w.save(p);obj=json.loads(p.read_text());obj['payload']['state']['energy']=999
-            p.write_text(json.dumps(obj))
+            p=Path(d)/'world.json';self.w.save(p);obj=json.loads(p.read_text(encoding="utf-8"));obj['payload']['state']['energy']=999
+            p.write_text(json.dumps(obj),encoding="utf-8")
             with self.assertRaises(DataError):self.w.load(p)
         self.assertEqual(self.w.state,before)
     def test_corrupt_state_even_recomputed_checksum(self):
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/'world.json';self.w.save(p);obj=json.loads(p.read_text());obj['payload']['state']['cohorts'][0]['trust']['labor']='bad';obj['checksum']=fingerprint(obj['payload']);p.write_text(json.dumps(obj))
+            p=Path(d)/'world.json';self.w.save(p);obj=json.loads(p.read_text(encoding="utf-8"));obj['payload']['state']['cohorts'][0]['trust']['labor']='bad';obj['checksum']=fingerprint(obj['payload']);p.write_text(json.dumps(obj),encoding="utf-8")
             with self.assertRaises(DataError):self.w.load(p)
     def test_reject_candidate_save(self):
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/'old.json';p.write_text('{"schema_version":3}')
+            p=Path(d)/'old.json';p.write_text('{"schema_version":3}',encoding='utf-8')
             with self.assertRaises(DataError):self.w.load(p)
     def test_bounded_history_years(self):
         self.w.step(104,False);self.w.step(104,False);self.assertLessEqual(len(self.w.state['events']),600);self.assertLessEqual(len(self.w.state['polls']),24)
