@@ -69,8 +69,11 @@ def run():
         host.send({'type': 'state', 'match': m.snapshot()})
         snapshot = guest.events.get(timeout=5)['match']
         assert Match.restore(app.base_data, snapshot).states[1].week == 2
+        app.close_app();app=None
+        from .god.smoke import run_checks
+        god_checks=run_checks()
         target = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path.cwd()
-        (target/'ui-smoke-ok.json').write_text(json.dumps({'ui': True, 'pillow': True, 'p2p': True, 'neural': True, 'clipboard': True, 'shortcuts': True}), encoding='utf-8')
+        (target/'ui-smoke-ok.json').write_text(json.dumps({'ui': True, 'pillow': True, 'p2p': True, 'neural': True, 'clipboard': True, 'shortcuts': True, **god_checks}), encoding='utf-8')
         return 0
     except Exception:
         import traceback

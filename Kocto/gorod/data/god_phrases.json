@@ -1,0 +1,364 @@
+{
+  "phrases": [
+    {
+      "text": "Усилить внимание к экологии",
+      "action": "attention",
+      "split": "train"
+    },
+    {
+      "text": "Сделать проблему дорог заметной",
+      "action": "attention",
+      "split": "train"
+    },
+    {
+      "text": "Поднять тему работы в повестке",
+      "action": "attention",
+      "split": "train"
+    },
+    {
+      "text": "Пусть жители обсуждают тарифы",
+      "action": "attention",
+      "split": "train"
+    },
+    {
+      "text": "Внимание пенсионеров к отоплению",
+      "action": "attention",
+      "split": "train"
+    },
+    {
+      "text": "Ускорить распространение новостей о тарифах",
+      "action": "information",
+      "split": "train"
+    },
+    {
+      "text": "Помочь информации дойти до рабочих",
+      "action": "information",
+      "split": "train"
+    },
+    {
+      "text": "Замедлить распространение сведений",
+      "action": "information",
+      "split": "train"
+    },
+    {
+      "text": "Пусть люди узнают новости",
+      "action": "information",
+      "split": "train"
+    },
+    {
+      "text": "Усилить обмен информацией",
+      "action": "information",
+      "split": "train"
+    },
+    {
+      "text": "Раскрыть факт событие 12",
+      "action": "reveal",
+      "split": "train"
+    },
+    {
+      "text": "Обнаружить доказательства события 3",
+      "action": "reveal",
+      "split": "train"
+    },
+    {
+      "text": "Разоблачить реальную историю",
+      "action": "reveal",
+      "split": "train"
+    },
+    {
+      "text": "Раскрыть существующий факт",
+      "action": "reveal",
+      "split": "train"
+    },
+    {
+      "text": "Сделать событие 9 известным",
+      "action": "reveal",
+      "split": "train"
+    },
+    {
+      "text": "Благословить район достатком",
+      "action": "economy",
+      "split": "train"
+    },
+    {
+      "text": "Увеличить доход рабочих",
+      "action": "economy",
+      "split": "train"
+    },
+    {
+      "text": "Дать Заречью процветание",
+      "action": "economy",
+      "split": "train"
+    },
+    {
+      "text": "Уменьшить бедность",
+      "action": "economy",
+      "split": "train"
+    },
+    {
+      "text": "Изменить достаток населения",
+      "action": "economy",
+      "split": "train"
+    },
+    {
+      "text": "Усилить соседскую взаимопомощь",
+      "action": "solidarity",
+      "split": "train"
+    },
+    {
+      "text": "Поддержать солидарность родителей",
+      "action": "solidarity",
+      "split": "train"
+    },
+    {
+      "text": "Помочь жителям объединиться",
+      "action": "solidarity",
+      "split": "train"
+    },
+    {
+      "text": "Укрепить взаимопомощь",
+      "action": "solidarity",
+      "split": "train"
+    },
+    {
+      "text": "Развить помощь соседям",
+      "action": "solidarity",
+      "split": "train"
+    },
+    {
+      "text": "Свести рабочих и пенсионеров",
+      "action": "meeting",
+      "split": "train"
+    },
+    {
+      "text": "Устроить встречу сообществ",
+      "action": "meeting",
+      "split": "train"
+    },
+    {
+      "text": "Познакомить жителей",
+      "action": "meeting",
+      "split": "train"
+    },
+    {
+      "text": "Расширить общение районов",
+      "action": "meeting",
+      "split": "train"
+    },
+    {
+      "text": "Дать людям встречаться",
+      "action": "meeting",
+      "split": "train"
+    },
+    {
+      "text": "Наслать мороз на Заречье",
+      "action": "weather",
+      "split": "train"
+    },
+    {
+      "text": "Вызвать бурю",
+      "action": "weather",
+      "split": "train"
+    },
+    {
+      "text": "Наводнение в центре",
+      "action": "weather",
+      "split": "train"
+    },
+    {
+      "text": "Сделать погоду суровой",
+      "action": "weather",
+      "split": "train"
+    },
+    {
+      "text": "Наслать ливень на окраину",
+      "action": "weather",
+      "split": "train"
+    },
+    {
+      "text": "Улучшить транспорт на окраине",
+      "action": "access",
+      "split": "train"
+    },
+    {
+      "text": "Увеличить доступность встреч",
+      "action": "access",
+      "split": "train"
+    },
+    {
+      "text": "Облегчить проезд жителей",
+      "action": "access",
+      "split": "train"
+    },
+    {
+      "text": "Создать удобный путь",
+      "action": "access",
+      "split": "train"
+    },
+    {
+      "text": "Изменить транспортную доступность",
+      "action": "access",
+      "split": "train"
+    },
+    {
+      "text": "Послать знамение пенсионерам",
+      "action": "dream",
+      "split": "train"
+    },
+    {
+      "text": "Дать религиозным жителям сон",
+      "action": "dream",
+      "split": "train"
+    },
+    {
+      "text": "Наслать сновидение",
+      "action": "dream",
+      "split": "train"
+    },
+    {
+      "text": "Явить чудо общине",
+      "action": "dream",
+      "split": "train"
+    },
+    {
+      "text": "Послать жителям знамение",
+      "action": "dream",
+      "split": "train"
+    },
+    {
+      "text": "Усилить удачу района",
+      "action": "luck",
+      "split": "train"
+    },
+    {
+      "text": "Дать рабочим везение",
+      "action": "luck",
+      "split": "train"
+    },
+    {
+      "text": "Устроить счастливое совпадение",
+      "action": "luck",
+      "split": "train"
+    },
+    {
+      "text": "Изменить удачу города",
+      "action": "luck",
+      "split": "train"
+    },
+    {
+      "text": "Увеличить везение",
+      "action": "luck",
+      "split": "train"
+    },
+    {
+      "text": "Исцелить жителей Заречья",
+      "action": "health",
+      "split": "train"
+    },
+    {
+      "text": "Улучшить здоровье пенсионеров",
+      "action": "health",
+      "split": "train"
+    },
+    {
+      "text": "Наслать болезнь на район",
+      "action": "health",
+      "split": "train"
+    },
+    {
+      "text": "Уменьшить болезнь",
+      "action": "health",
+      "split": "train"
+    },
+    {
+      "text": "Исцелить рабочих",
+      "action": "health",
+      "split": "train"
+    },
+    {
+      "text": "Восстановить инфраструктуру",
+      "action": "infrastructure",
+      "split": "train"
+    },
+    {
+      "text": "Починить отопление",
+      "action": "infrastructure",
+      "split": "train"
+    },
+    {
+      "text": "Отремонтировать дороги",
+      "action": "infrastructure",
+      "split": "train"
+    },
+    {
+      "text": "Восстановить водопровод",
+      "action": "infrastructure",
+      "split": "train"
+    },
+    {
+      "text": "Починить городскую инфраструктуру",
+      "action": "infrastructure",
+      "split": "train"
+    },
+    {
+      "text": "Усилить внимание в Заводском районе",
+      "action": "attention",
+      "split": "test"
+    },
+    {
+      "text": "Ускорить распространение в Заводском районе",
+      "action": "information",
+      "split": "test"
+    },
+    {
+      "text": "Раскрыть реальный факт в Заводском районе",
+      "action": "reveal",
+      "split": "test"
+    },
+    {
+      "text": "Изменить достаток в Заводском районе",
+      "action": "economy",
+      "split": "test"
+    },
+    {
+      "text": "Усилить взаимопомощь в Заводском районе",
+      "action": "solidarity",
+      "split": "test"
+    },
+    {
+      "text": "Свести сообщества в Заводском районе",
+      "action": "meeting",
+      "split": "test"
+    },
+    {
+      "text": "Изменить погоду в Заводском районе",
+      "action": "weather",
+      "split": "test"
+    },
+    {
+      "text": "Изменить доступность в Заводском районе",
+      "action": "access",
+      "split": "test"
+    },
+    {
+      "text": "Послать знамение в Заводском районе",
+      "action": "dream",
+      "split": "test"
+    },
+    {
+      "text": "Изменить удачу в Заводском районе",
+      "action": "luck",
+      "split": "test"
+    },
+    {
+      "text": "Исцелить жителей в Заводском районе",
+      "action": "health",
+      "split": "test"
+    },
+    {
+      "text": "Восстановить инфраструктуру в Заводском районе",
+      "action": "infrastructure",
+      "split": "test"
+    }
+  ]
+}
