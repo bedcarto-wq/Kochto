@@ -14,6 +14,7 @@ from ..shortcuts import ShortcutStore,normalize_clipboard
 from .world import World,forecast,attraction,affected
 from .language import parse,execute
 from . import network as N
+from . import living,agents
 from ..p2p import Link, NetworkError, new_code, DEFAULT_PORT
 from .world import fingerprint
 import queue
@@ -89,7 +90,7 @@ class App(tk.Tk):
         self._button(buttons,'Отмена',self.cancel)
         self.tabs=ttk.Notebook(self);self.tabs.pack(fill='both',expand=True,padx=8,pady=4)
         frames={}
-        for key,label in [('city','Город'),('people','Избиратели'),('parties','Политика'),('history','Хроника'),('election','Выборы'),('actors','Люди и связи'),('limits','Что реализовано')]:
+        for key,label in [('city','Город'),('people','Избиратели'),('homes','Домохозяйства'),('parties','Политика'),('history','Хроника'),('election','Выборы'),('actors','Люди и связи'),('limits','Что реализовано')]:
             frames[key]=ttk.Frame(self.tabs);self.tabs.add(frames[key],text=label)
         self.frames=frames
         city=ttk.Panedwindow(frames['city'],orient='horizontal');city.pack(fill='both',expand=True)
@@ -110,6 +111,11 @@ class App(tk.Tk):
         self.people=self._tree(frames['people'],[('id','Когорта'),('district','Район'),('tags','Признаки'),('pop','Жители'),('econ','Экономика'),('faith','Традиции'),('best','Первый выбор')])
         self.people.column('tags',width=260);self.people.bind('<<TreeviewSelect>>',self.cohort_details)
         self.details=self._text(frames['people'],5)
+        ttk.Label(frames['homes'],text='Представительное домохозяйство когорты · условные рубли за неделю · не отдельные семьи и не реальные статистические данные',wraplength=940).pack(anchor='w',padx=8,pady=6)
+        self.homes=self._tree(frames['homes'],[('id','Когорта'),('district','Район'),('income','Доход'),('needs','Нужды'),('balance','Баланс'),('savings','Резерв'),('debt','Долг'),('goal','Решение')],height=8)
+        for key in ('id','income','needs','balance','savings','debt'):self.homes.column(key,width=90,minwidth=70)
+        self.homes.column('district',width=175);self.homes.column('goal',width=200)
+        self.homes.bind('<<TreeviewSelect>>',self.household_details);self.home_text=self._text(frames['homes'],8)
         self.parties=self._tree(frames['parties'],[('name','Партия'),('leader','Лидер'),('share','Прогноз %'),('seats','Места'),('org','Организация'),('funds','Ресурсы'),('axes','Экономика / свободы')],height=5)
         self.parties.column('name',width=210);self.parties.column('leader',width=150)
         self.political_text=self._text(frames['parties'],8)
@@ -121,7 +127,7 @@ class App(tk.Tk):
         self.actors=self._tree(frames['actors'],[('name','Персонаж'),('role','Роль'),('goal','Собственная цель'),('age','Возраст'),('status','Состояние')],height=8);self.actors.column('goal',width=300);self.actors.bind('<<TreeviewSelect>>',self.actor_details)
         self.actor_text=self._text(frames['actors'],5)
         self.limits=self._text(frames['limits'],18)
-        self._set(self.limits,'0.8.0 — первая рабочая основа новой концепции, не все 132 пункта в полном объёме.\n\nРаботают: автономные недели; 144 когорты с пересекающимися признаками; идеологическая близость и оценки каждой партии; отдельная явка; партии, агитация и смена программ; обещания и проекты; коалиции; три правила выборов; информация и известные факты; инфраструктура, занятость, миграция; движения и преемники; косвенные силы; прямой редактор; контрольная сумма сохранений.\n\nУпрощены: внутри когорт распределение описано средним и разбросом; проекты и хозяйство агрегированы; отношения индивидуальны только у ключевых лиц; журналистика и память событий имеют небольшое число правил.\n\nЕщё не готовы: отдельные домохозяйства, подробный жизненный план каждого гражданина, второй тур, объединение партий, индивидуальное обучение стратегий и отложенные условные чудеса. P2P бога — два доверенных наблюдателя/участника одного мира с авторитетным создателем.\n\nСвободный ввод не означает произвольный исполняемый код. Неподдерживаемая механика блокируется. Нейросеть предлагает варианты; условия и приказы не превращаются в готовую победу партии.\n\nПодробный план и критерии: ПЛАН_0_8.md в репозитории.')
+        self._set(self.limits,'0.8.1 — следующий слой рабочей основы новой концепции, не все 132 пункта в полном объёме.\n\nРаботают: автономные недели; 144 когорты с пересекающимися признаками; идеологическая близость и оценки каждой партии; отдельная явка; партии, агитация и смена программ; обещания и проекты; коалиции; три правила выборов; информация и известные факты; инфраструктура, занятость, миграция; движения и преемники; косвенные силы; прямой редактор; контрольная сумма сохранений.\n\nУпрощены: внутри когорт распределение описано средним и разбросом; проекты и хозяйство агрегированы; отношения индивидуальны только у ключевых лиц; журналистика и память событий имеют небольшое число правил.\n\nДобавлены: бюджеты представительных домохозяйств (расходы, резерв, кредит, проценты, нехватка); решения о работе, курсе, заботе и взаимопомощи. Политики сравнивают действия по стоимости, характеру и сохранённой выборке, а не читают точные предпочтения всех жителей. Это прозрачный планировщик, не нейросетевые личности.\n\nЕщё не готовы: отдельные индивидуальные домохозяйства, подробный жизненный план каждого гражданина, второй тур, объединение партий, индивидуальное обучение стратегий и отложенные условные чудеса. P2P бога — два доверенных наблюдателя/участника одного мира с авторитетным создателем.\n\nСвободный ввод не означает произвольный исполняемый код. Неподдерживаемая механика блокируется. Нейросеть предлагает варианты; условия и приказы не превращаются в готовую победу партии.\n\nПодробный план и критерии: ПЛАН_0_8.md в репозитории.')
 
     def _set(self,widget,text):
         widget.configure(state='normal');widget.delete('1.0','end');widget.insert('1.0',text);widget.configure(state='disabled')
@@ -186,20 +192,24 @@ class App(tk.Tk):
         self.after(1000,self._clock)
 
     def refresh(self):
+        selected={key:getattr(self,key).selection() for key in ('homes','actors','people','history')}
         s=self.world.state;v=self.world.summary()
         self.header.configure(text='Неделя '+str(v['week'])+' · влияние '+str(round(v['energy']))+'/100')
         self.status.configure(text=str(v['population'])+' избирателей · '+str(v['cohorts'])+' когорт · выборы: неделя '+str(v['next_election'])+' · власть: '+(', '.join(v['government']) or 'вакантна')+(' · использован прямой редактор' if v['editor_used'] else ' · косвенное управление')+(' · P2P: '+('создатель' if self.net_host else 'друг') if self.link else ''))
         self.clear(self.districts)
         for did,d in s['districts'].items():self.districts.insert('', 'end',iid=did,values=(d['name'],d['population'],round(d['income']),round(d['jobs']),round(d['infra']),round(d['access'])))
         self._set(self.city_feed,'ПОСЛЕДНИЕ СОБЫТИЯ\n\n'+'\n\n'.join('Неделя '+str(e['week'])+' · '+e['text'] for e in s['events'][-5:]))
-        self.refresh_people();self.clear(self.parties)
+        self.refresh_people();self.clear(self.homes)
+        for c in s['cohorts']:
+            h=c['household'];self.homes.insert('','end',iid=c['id'],values=(c['id'],s['districts'][c['district']]['name'],round(h['income']),round(h['needs']),round(h['balance']),round(h['savings']),round(h['debt']),living.ACTIONS[c['life']['action']]))
+        self.clear(self.parties)
         last=s['elections'][-1] if s['elections'] else {'seats':{}}
         for pid,p in s['parties'].items():
             if p['active']:self.parties.insert('', 'end',iid=pid,values=(p['name'],s['actors'][p['leader']]['name'],round(v['forecast']['shares'].get(pid,0),1),last['seats'].get(pid,'—'),round(p['organization']),round(p['funds']),str(round(p['ideology']['economy']))+' / '+str(round(p['ideology']['freedom']))))
         promise_status={'open':'в силе','kept':'выполнено','partial':'частично','broken':'сорвано','cancelled':'отменено'}
         promises=[s['parties'][x['party']]['name']+' / '+s['districts'][x['district']]['name']+' / '+self.world.data['topics'][x['topic']]['name']+' · '+promise_status.get(x['status'],x['status'])+' · до недели '+str(x['deadline']) for x in s['promises'][-12:]]
         firms=['Предприятие: '+f['name']+' · работников '+str(f['workers'])+' · капитал '+str(round(f['capital'])) for f in s['firms'].values()]
-        self._set(self.political_text,'Прогноз — сравнение привлекательности + явка, не независимые проценты симпатии.\nОценочная явка: '+str(round(v['forecast']['turnout'],1))+'%.\nБюджет города: '+str(round(s['budget']))+'; незавершённых проектов: '+str(len(s['projects']))+'; общественных движений: '+str(sum(m['active'] for m in s['movements']))+'\n'+'\n'.join(firms)+'\n\nОБЕЩАНИЯ\n'+'\n'.join(promises))
+        self._set(self.political_text,'Прогноз наблюдателя — не знания агента. Политики выбирают действия по своей неполной выборке.\nОценочная явка: '+str(round(v['forecast']['turnout'],1))+'%.\nБюджет города: '+str(round(s['budget']))+'; незавершённых проектов: '+str(len(s['projects']))+'; общественных движений: '+str(sum(m['active'] for m in s['movements']))+'\n'+'\n'.join(firms)+'\n\nОБЕЩАНИЯ\n'+'\n'.join(promises))
         self.clear(self.history)
         for e in reversed(s['events'][-180:]):self.history.insert('','end',iid=str(e['id']),values=(e['id'],e['week'],e['kind'],e['text']))
         self.clear(self.actors)
@@ -212,6 +222,10 @@ class App(tk.Tk):
             lines+=['Правительство: '+', '.join(s['parties'][p]['name'] for p in e['government']),'']
         if not s['elections']:lines.append('Первые выборы ещё не состоялись. Нажмите «До выборов».')
         self._set(self.elections,'\n'.join(lines));self.draw_city()
+        for key,callback,detail in [('homes',self.household_details,self.home_text),('actors',self.actor_details,self.actor_text),('people',self.cohort_details,self.details),('history',self.event_details,self.event_text)]:
+            tree=getattr(self,key);old=selected[key]
+            if old and tree.exists(old[0]):tree.selection_set(old[0]);callback()
+            else:self._set(detail,'Выберите строку, чтобы увидеть текущие подробности.')
 
     def refresh_people(self):
         self.clear(self.people);tag=next((k for k,v in self.world.data['tags'].items() if v==self.filter.get()),'all')
@@ -247,8 +261,33 @@ class App(tk.Tk):
     def actor_details(self,event=None):
         ids=self.actors.selection()
         if not ids:return
-        a=self.world.state['actors'][ids[0]];relations=[self.world.state['actors'][k]['name']+': '+str(v) for k,v in a['relations'].items() if k in self.world.state['actors']]
-        self._set(self.actor_text,a['name']+' · '+a['goal']+'\nЧестность '+str(a['honesty'])+' · компетентность '+str(a['competence'])+' · влияние '+str(a['influence'])+'\nОтношения (пока частичная модель): '+', '.join(relations))
+        a=self.world.state['actors'][ids[0]];dec=a['decision']
+        relations=[self.world.state['actors'][k]['name']+': '+str(v) for k,v in a['relations'].items() if k in self.world.state['actors']]
+        lines=[a['name']+' · '+a['goal'],'Честность '+str(a['honesty'])+' · компетентность '+str(a['competence'])+' · влияние '+str(a['influence']),
+               'Решение на неделе '+str(dec['week'])+': '+agents.NAMES[dec['action']]+' · '+dec['reason']]
+        for r in dec['options']:lines.append(agents.NAMES[r['action']]+': оценка '+str(round(r['score'],1))+' · '+r['reason'])
+        pid=next((p for p,x in self.world.state['parties'].items() if x['leader']==ids[0]),None)
+        if pid:
+            i=self.world.state['parties'][pid]['intel'];lines.append('Знания политика: выборка '+str(i['sample'])+' наблюдений, неделя '+str(i['week'])+'; оценки с шумом, не точные предпочтения всех жителей.')
+        else:lines.append('У этой роли ещё нет общего планировщика: её автономные правила остаются частичными.')
+        lines.append('Отношения (частичная модель): '+', '.join(relations));self._set(self.actor_text,'\n'.join(lines))
+
+    def household_details(self,event=None):
+        ids=self.homes.selection()
+        if not ids:return
+        c=next(c for c in self.world.state['cohorts'] if c['id']==ids[0]);h=c['household'];life=c['life'];d=self.world.state['districts'][c['district']]
+        lines=[c['id']+' · '+', '.join(self.world.data['tags'][t] for t in c['tags']),
+               'Население '+str(c['population'])+' · среднее представительное домохозяйство, не '+str(c['population'])+' отдельных семей.',
+               'Защищённость '+str(round(h['security'],1))+'/100 · нехватка средств '+str(round(h['shortage']))+' · свободное время '+str(round(h['free_time'],1))+' · усталость '+str(round(h['fatigue'],1)),
+               'Решение: '+living.ACTIONS[life['action']]+' · курс '+str(h['training'])+'/8 недель · квалификация '+str(h['skill'])+' · завершено курсов '+str(life['completed'])]
+        lines.append('План расходов при текущем решении (не проводки прошлой недели):')
+        for key,value in living.expenses(c,d,self.world.data['living']).items():lines.append({'food':'Еда','housing':'Жильё','transport':'Транспорт','health':'Здоровье','dependents':'Иждивенцы','study':'Обучение'}[key]+': '+str(round(value)))
+        if h['ledger']:
+            l=h['ledger'];lines+=['Денежный журнал последней недели:','Доход '+str(round(l['income']))+' − оплачено '+str(round(l['paid']))+' − проценты '+str(round(l['interest']))+' = изменение чистого резерва '+str(round(h['balance'])),
+                'Из резерва '+str(round(l['withdrawal']))+' · новый кредит '+str(round(l['loan']))+' · погашено '+str(round(l['repayment']))+' · отложено '+str(round(l['deposit']))]
+        else:lines.append('Недельных проводок ещё нет: перемотайте одну неделю.')
+        lines+=['Почему выбрано:']+[living.ACTIONS[r['action']]+': '+str(round(r['score'],1))+' · '+r['reason'] for r in life['options']]
+        self._set(self.home_text,'\n'.join(lines))
 
     def explain(self):
         dlg=tk.Toplevel(self);dlg.title('Структура вмешательства');dlg.geometry('700x450')
@@ -404,6 +443,7 @@ class App(tk.Tk):
             try:self.world.load(path)
             except DataError as exc:messagebox.showerror('Загрузка',str(exc)+'\nСтарые сейвы кандидата — в отдельном режиме.',parent=self);return
             self.cancel();self.refresh()
+            if self.world.migration_notice:messagebox.showinfo('Перенос сохранения',self.world.migration_notice,parent=self)
 
     def export_history(self):
         path=filedialog.asksaveasfilename(initialfile='god_history.txt',defaultextension='.txt')
@@ -479,7 +519,7 @@ class App(tk.Tk):
         fields={}
         for key,label,default in [('ip','IP создателя / VPN',''),('port','TCP-порт',str(DEFAULT_PORT)),('code','Код создателя',new_code())]:
             row=ttk.Frame(dlg);row.pack(fill='x',padx=12,pady=5);ttk.Label(row,text=label,width=23).pack(side='left');entry=ttk.Entry(row,width=40);entry.insert(0,default);entry.pack(side='left');fields[key]=entry
-        ttk.Label(dlg,text='Оба игрока используют 0.8.0. Ход времени и операции проверяет создатель.\nДля интернета — VPN или проброс порта. Пакеты НЕ шифруются; только доверенные друзья.\nПродолжение: создатель загружает обычный сейв мира и открывает новый код.',wraplength=580).pack(padx=12,pady=8)
+        ttk.Label(dlg,text='Оба игрока используют 0.8.1. Ход времени и операции проверяет создатель.\nДля интернета — VPN или проброс порта. Пакеты НЕ шифруются; только доверенные друзья.\nПродолжение: создатель загружает обычный сейв мира и открывает новый код.',wraplength=580).pack(padx=12,pady=8)
         def connect():
             try:
                 port=int(fields['port'].get());code=fields['code'].get().strip()
