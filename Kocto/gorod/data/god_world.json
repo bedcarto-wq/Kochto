@@ -1,5 +1,5 @@
 {
-  "schema": 3,
+  "schema": 4,
   "name": "Город помнит — наблюдатель и бог",
   "axes": {
     "economy": "Экономика",
@@ -435,5 +435,16 @@
     },
     "project_cost": 26,
     "upkeep": 0.25
+  },
+  "scenario_rules": {
+    "decision_weeks": [
+      8,
+      16
+    ],
+    "end_week": 26,
+    "initial_capital": 38,
+    "initial_pollution": 72,
+    "conversion_cost": 32,
+    "conversion_steps": 6
   }
 }

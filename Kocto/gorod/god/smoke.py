@@ -42,7 +42,7 @@ def run_checks():
             same=World(seed=1);same.load(path);assert same.state==app.world.state
             # Prior schema, with exact shipped 0.8.0 rules. No invented history.
             import json
-            old=copy.deepcopy(World(seed=87).state);old['schema']=1;old.pop('civic')
+            old=copy.deepcopy(World(seed=87).state);old.pop('story',None);old['schema']=1;old.pop('story',None);old.pop('civic')
             for c in old['cohorts']:del c['household'];del c['life'];del c['service_pressure'];del c['service_cause']
             for a in old['actors'].values():del a['decision']
             for p in old['parties'].values():del p['intel'];del p['intent']
@@ -52,6 +52,10 @@ def run_checks():
             legacy_path=Path(tmp)/'сейв080.json';legacy_path.write_text(json.dumps({'payload':payload,'checksum':fingerprint(payload)},ensure_ascii=False),encoding='utf-8')
             same.load(legacy_path);assert same.migration_notice and same.state['week']==old['week']
             same.step()
+        app.world=World(seed=87,scenario='last_winter');app.refresh();assert 'ПОСЛЕДНЯЯ ЗИМА' in app.story_text.get('1.0','end')
+        app.world.step(26,False);app.refresh();assert app.world.state['story']['finished'] and str(app.continue_btn['state'])=='normal'
+        app.continue_story();app.world.step();assert app.world.state['week']==28
+        app.world=World(seed=87,scenario='last_winter');app.refresh()
         guest=App(seed=42);guest.withdraw()
         code=new_code();rules=fingerprint(app.world.data)
         app.link=Link();app.net_host=True;app.link.host(code,rules,port=0,bind='127.0.0.1')
@@ -65,11 +69,13 @@ def run_checks():
             raise AssertionError('God TCP timeout')
         pump_until(lambda:app.net_connected and guest.net_connected)
         assert guest.world.state==app.world.state
+        guest.dispatch('story',{'op':'goal','value':'ties'});pump_until(lambda:not guest.net_busy)
+        assert guest.world.state==app.world.state and app.world.state['story']['goal']=='ties'
         guest.dispatch('plan','Усилить внимание к экологии');pump_until(lambda:not guest.net_busy)
         assert guest.world.state==app.world.state
         guest.dispatch('step',1);pump_until(lambda:not guest.net_busy)
         assert guest.world.state==app.world.state
-        return {'god_ui':True,'god_world':True,'god_clipboard':True,'god_shortcuts':True,'god_save':True,'god_tcp':True,'households':True,'agent_planner':True,'migration_080':True,'institutions':True,'civic_projects':True,'document_ui':True}
+        return {'god_ui':True,'god_world':True,'god_clipboard':True,'god_shortcuts':True,'god_save':True,'god_tcp':True,'households':True,'agent_planner':True,'migration_080':True,'institutions':True,'civic_projects':True,'document_ui':True,'scenario_ui':True,'scenario_epilogue':True,'scenario_tcp':True}
     finally:
         if guest:guest.close()
         app.close()

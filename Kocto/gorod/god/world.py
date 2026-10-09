@@ -10,10 +10,11 @@ import random
 from pathlib import Path
 from ..engine import DataError, RuleError, DATA_DIR, load_json
 
-SCHEMA = 3
+SCHEMA = 4
+RULES_085 = '8be62c1c633779e59b98160e37504ca4f9cef2453ef6ac484d2670a4890fa1be'
 RULES_081 = '843560ea77b761791b698f64ce713e02bf8ed31067b40e1f32fcadb9e83c48cd'
 LEGACY_RULES = 'b87796db80f1ae89dd7a1d26350e685327932aa2b43a4c169a06587b0a07c00b'
-from . import living, agents, civic
+from . import living, agents, civic, story
 
 
 def clamp(x, low=0.0, high=100.0):
@@ -48,6 +49,7 @@ def load_data():
         if any(type(v) not in (int,float) or not math.isfinite(v) or v<=0 for v in cfg.values()) or cfg['interest']>0.1 or cfg['credit_weeks']>52:raise ValueError('финансовые параметры')
         cc=data['civic']
         if set(cc)!={'demand','project_cost','upkeep'} or set(cc['demand'])!=set(civic.KINDS) or any(type(v) not in (int,float) or not 0<v<=1 for v in cc['demand'].values()) or not 1<=cc['project_cost']<=100 or not 0<cc['upkeep']<=10:raise ValueError('параметры учреждений')
+        story.validate_rules(data['scenario_rules'])
         rules=data['rules']
         if type(rules['election_period']) is not int or not 4<=rules['election_period']<=104 or type(rules['first_election']) is not int or rules['first_election']<1:raise ValueError('календарь')
         if type(rules['seats']) is not int or rules['seats']<4 or not 0<=rules['threshold']<=25 or rules['election_system'] not in ('proportional','majoritarian','mixed'):raise ValueError('выборы')
@@ -57,7 +59,9 @@ def load_data():
 
 
 def previous_data(data,schema):
-    old=copy.deepcopy(data);old.pop('civic')
+    old=copy.deepcopy(data);old.pop('scenario_rules');old['schema']=schema
+    if schema==3:return old
+    old.pop('civic')
     for key in civic.NEW_POWERS:old['powers'].pop(key)
     old['schema']=schema
     if schema==1:old.pop('living')
@@ -81,7 +85,7 @@ def event(s,kind,text,district='all',topic='',party='',causes=None,truth=True):
 
 def new_state(data,seed):
     rng=random.Random(seed)
-    s={'schema':SCHEMA,'seed':seed,'week_seed':rng.getrandbits(64),'week':1,'revision':0,'energy':100.0,'event_id':1,
+    s={'story':None,'schema':SCHEMA,'seed':seed,'week_seed':rng.getrandbits(64),'week':1,'revision':0,'energy':100.0,'event_id':1,
        'districts':copy.deepcopy(data['districts']),'parties':copy.deepcopy(data['parties']),'cohorts':[],
        'actors':{},'firms':{},'links':{},'events':[],'powers':[],'promises':[],'projects':[],'movements':[],
        'elections':[],'governing':['labor'],'budget':120.0,'rules':copy.deepcopy(data['rules']),
@@ -346,6 +350,7 @@ def government(s,data,rng):
 
 def society(s,data,rng):
     for firm in s['firms'].values():
+        if s.get('story') and s['story']['plant']=='closed' and firm['district']=='factory':continue
         d=s['districts'][firm['district']]
         local=[c for c in s['cohorts'] if c['district']==firm['district'] and c['population']]
         consumption=sum(c['population']*(c['household']['paid']/max(1,c['household']['needs']) if c['household']['needs'] else 1) for c in local)/max(1,sum(c['population'] for c in local))
@@ -519,6 +524,7 @@ def advance(s,data):
     rng=random.Random(s['week_seed']);start=s['event_id']
     before={(c['id'],pid):attraction(s,c,pid) for c in s['cohorts'] for pid,p in s['parties'].items() if p['active']}
     power_effects(s,data)
+    story.before(s,data,event)
     society(s,data,rng)
     living.tick(s,data,rng,event)
     civic.evaluate_institutions(s,data,event)
@@ -536,9 +542,10 @@ def advance(s,data):
     civic.record_changes(s,before,attraction,start)
     result=None
     if s['week']>=s['rules'].get('next_election',s['rules']['first_election']):result=election(s,data,rng)
+    ended=story.after(s,data,event,start)
     s['energy']=clamp(s['energy']+s['rules']['energy_regen'],0,s['rules']['energy_max'])
     s['week']+=1;s['revision']+=1;s['week_seed']=rng.getrandbits(64)
-    return {'events':[e for e in s['events'] if e['id']>=start],'election':result}
+    return {'events':[e for e in s['events'] if e['id']>=start],'election':result,'story_end':ended}
 
 
 def validate_state(s,data,legacy=False):
@@ -552,7 +559,8 @@ def validate_state(s,data,legacy=False):
         elif not isinstance(x,(str,int,float,bool,type(None))):raise DataError('god save: неизвестный тип')
     walk(s)
     template_keys={'schema','seed','week_seed','week','revision','energy','event_id','districts','parties','cohorts','actors','firms','links','events','powers','promises','projects','movements','elections','governing','budget','rules','effects','direct_log','editor_used','next_party','polls','media_trust'}
-    if not legacy:template_keys.add('civic')
+    if not legacy or legacy==3:template_keys.add('civic')
+    if not legacy:template_keys.add('story')
     if not isinstance(s,dict) or set(s)!=template_keys or type(s['schema']) is not int or s['schema']!=(int(legacy) if legacy else SCHEMA):raise DataError('god save: схема нового режима, не сохранение кандидата')
     for key in ('seed','week_seed','week','revision','event_id','next_party'):
         if type(s[key]) is not int or s[key]<0:raise DataError('god save: '+key)
@@ -619,30 +627,44 @@ def validate_state(s,data,legacy=False):
         if x['party'] not in s['parties'] or x['district'] not in s['districts'] or x['topic'] not in data['topics'] or x['status'] not in ('open','kept','partial','broken','cancelled'):raise DataError('god save: обещание')
     for x in s['projects']:
         if x['party'] not in s['parties'] or x['district'] not in s['districts'] or x['field'] not in ('infra','jobs'):raise DataError('god save: проект')
-    if not legacy or legacy==2:
+    if not legacy or legacy in (2,3):
         for c in s['cohorts']:living.validate(c,numeric)
         agents.validate(s,data,numeric)
-    if not legacy:civic.validate(s,data,numeric)
+    if not legacy or legacy==3:civic.validate(s,data,numeric)
+    if not legacy:story.validate(s,data)
     return s
 
 
 class World:
-    def __init__(self,seed=None,data=None):
+    def __init__(self,seed=None,data=None,scenario=None,goal='livelihood'):
         import secrets
         if seed is None:seed=secrets.randbits(64)
         if type(seed) is not int or not 0<=seed<2**64:raise RuleError('Зерно города: целое 0..2^64−1')
         self.data=data or load_data();self.state=new_state(self.data,seed);validate_state(self.state,self.data);self.undo_buffer=[];self.migration_notice=''
+        if scenario is not None:
+            if scenario!='last_winter':raise RuleError('Неизвестный сценарий')
+            story.start(self.state,self.data,event,goal);validate_state(self.state,self.data)
 
     def step(self,weeks=1,stop_at_election=True):
         if type(weeks) is not int or not 1<=weeks<=104:raise RuleError('1–104 недели за запуск')
+        if self.state['story'] and self.state['story']['finished'] and not self.state['story']['continued']:raise RuleError('История завершена. Выберите «Продолжить мир».')
         reports=[]
         # Entire requested run is transactional if a rule/data error occurs.
         scratch=copy.deepcopy(self.state)
         for _ in range(weeks):
             report=advance(scratch,self.data);reports.append(report)
-            if report['election'] and stop_at_election:break
+            if report['story_end'] or (report['election'] and stop_at_election):break
         validate_state(scratch,self.data);self.state=scratch
         return reports
+
+    def story_action(self,op,value=None):
+        scratch=copy.deepcopy(self.state)
+        if op=='goal':story.choose(scratch,value,event)
+        elif op=='continue':
+            if not scratch['story'] or not scratch['story']['finished']:raise RuleError('История ещё не завершена')
+            scratch['story']['continued']=True;scratch['revision']+=1
+        else:raise RuleError('Неизвестная операция истории')
+        validate_state(scratch,self.data);self.state=scratch
 
     def intervene(self,command):
         if not isinstance(command,dict) or set(command)-{'power','target','topic','strength','duration','event_id','document_id','actor_a','actor_b','association_id'}:raise RuleError('Неверная структура вмешательства')
@@ -675,16 +697,17 @@ class World:
             obj=load_json(path);payload=obj['payload']
             if obj['checksum']!=fingerprint(payload) or payload['format']!='god-world':raise DataError('god save: неверный формат или контрольная сумма')
             scratch=copy.deepcopy(payload['state']);notice=''
-            if payload['schema'] in (1,2) and payload['rules'] in (LEGACY_RULES,RULES_081):
-                expected=LEGACY_RULES if payload['schema']==1 else RULES_081
+            if payload['schema'] in (1,2,3) and payload['rules'] in (LEGACY_RULES,RULES_081,RULES_085):
+                expected={1:LEGACY_RULES,2:RULES_081,3:RULES_085}[payload['schema']]
                 old_data=previous_data(self.data,payload['schema'])
-                if payload['rules']!=expected or fingerprint(old_data)!=expected:raise DataError('Перенос доступен только для штатных правил 0.8.0/0.8.1')
+                if payload['rules']!=expected or fingerprint(old_data)!=expected:raise DataError('Перенос доступен только для штатных правил 0.8.0/0.8.1/0.8.5')
                 validate_state(scratch,old_data,legacy=payload['schema'])
                 if payload['schema']==1:
                     for c in scratch['cohorts']:living.initialize(c,scratch['week'])
                     agents.initialize(scratch)
-                civic.initialize(scratch,self.data);civic.evaluate_institutions(scratch,self.data,event,False);scratch['schema']=SCHEMA
-                notice='Мир перенесён в 0.8.5. Старые данные и seed сохранены; учреждения и новые процессы инициализированы без выдуманного прошлого. Оплаченные проекты продолжаются без повторного списания бюджета. Сохраните под новым именем; обратной совместимости нет.'
+                if payload['schema']<3:civic.initialize(scratch,self.data);civic.evaluate_institutions(scratch,self.data,event,False)
+                scratch['story']=None;scratch['schema']=SCHEMA
+                notice='Мир перенесён в 0.8.6 как свободный мир; сценарий задним числом не создаётся. Старые данные и seed сохранены; учреждения и новые процессы инициализированы без выдуманного прошлого. Оплаченные проекты продолжаются без повторного списания бюджета. Сохраните под новым именем; обратной совместимости нет.'
             elif payload['schema']!=SCHEMA or payload['rules']!=fingerprint(self.data):raise DataError('god save: неподдерживаемая схема или правила')
             validate_state(scratch,self.data)
         except (OSError,KeyError,TypeError,ValueError) as exc:raise DataError('Не удалось загрузить мир: '+str(exc)) from exc

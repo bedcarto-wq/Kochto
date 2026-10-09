@@ -3,17 +3,22 @@ from pathlib import Path
 from ..engine import RuleError,DataError
 from ..paths import save_dir
 from .world import World
+from . import story
 from .language import parse,execute
 
 def main():
     w=World(seed=87)
-    print('Город помнит 0.8.5 · игрок — бог. Мир живёт сам.\nКоманды: статус, неделя, месяц, выборы, хроника, сохранить ИМЯ, загрузить ИМЯ, выход.\nНапишите вмешательство; выполнение только после подтверждения.')
+    print('Город помнит 0.8.6 · игрок — бог. Мир живёт сам.\nКоманды: сценарий, свободный мир, история, продолжить, статус, неделя, месяц, выборы, хроника, сохранить ИМЯ, загрузить ИМЯ, выход.\nНапишите вмешательство; выполнение только после подтверждения.')
     while True:
         try:text=input('Бог > ').strip()
         except EOFError:return 0
         try:
             if text in ('выход','exit'):return 0
-            if text=='статус':print(w.summary())
+            if text=='сценарий':w=World(scenario='last_winter');print('\n'.join(story.briefing(w.state)))
+            elif text=='свободный мир':w=World();print('Свободный мир создан')
+            elif text=='история':print('\n'.join(story.briefing(w.state)))
+            elif text=='продолжить':w.story_action('continue')
+            elif text=='статус':print(w.summary())
             elif text in ('неделя','месяц','выборы'):
                 reports=w.step({'неделя':1,'месяц':4,'выборы':104}[text],True)
                 for report in reports:
