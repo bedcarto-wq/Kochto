@@ -10,7 +10,9 @@ import random
 from pathlib import Path
 from ..engine import DataError, RuleError, DATA_DIR, load_json
 
-SCHEMA = 1
+SCHEMA = 2
+LEGACY_RULES = 'b87796db80f1ae89dd7a1d26350e685327932aa2b43a4c169a06587b0a07c00b'
+from . import living, agents
 
 
 def clamp(x, low=0.0, high=100.0):
@@ -40,6 +42,9 @@ def load_data():
         if set(data['powers'])!={'attention','information','reveal','economy','solidarity','meeting','weather','access','dream','luck','health','infrastructure'}:raise ValueError('поддерживаемые механизмы')
         for power in data['powers'].values():
             if type(power['cost']) is not int or not 1<=power['cost']<=100 or not power['aliases']:raise ValueError('сила')
+        cfg=data['living']
+        if set(cfg)!={'base_income','income_factor','family_earners','family_cost','pension_factor','food','housing','housing_income','transport','health','dependents','study_fee','side_income','interest','credit_weeks'}:raise ValueError('бюджеты домохозяйств')
+        if any(type(v) not in (int,float) or not math.isfinite(v) or v<=0 for v in cfg.values()) or cfg['interest']>0.1 or cfg['credit_weeks']>52:raise ValueError('финансовые параметры')
         rules=data['rules']
         if type(rules['election_period']) is not int or not 4<=rules['election_period']<=104 or type(rules['first_election']) is not int or rules['first_election']<1:raise ValueError('календарь')
         if type(rules['seats']) is not int or rules['seats']<4 or not 0<=rules['threshold']<=25 or rules['election_system'] not in ('proportional','majoritarian','mixed'):raise ValueError('выборы')
@@ -105,6 +110,8 @@ def new_state(data,seed):
             s['cohorts'].append(c)
     ids=list(s['districts'])
     s['links']={a:{b:(1.0 if a==b else .35 if abs(ids.index(a)-ids.index(b))==1 else .15) for b in ids} for a in ids}
+    for c in s['cohorts']:living.initialize(c)
+    agents.initialize(s)
     event(s,'origin','Город живёт самостоятельно. Первые выборы — на неделе '+str(data['rules']['first_election'])+'.')
     return s
 
@@ -303,53 +310,7 @@ def information(s,data,rng):
 
 
 def politics(s,data,rng):
-    f=forecast(s);active=[p for p,x in s['parties'].items() if x['active']]
-    for pid in active:
-        p=s['parties'][pid];p['funds']=clamp(p['funds']+3,0,200);p['organization']=clamp(p['organization']+.2)
-        leader=s['actors'][p['leader']]
-        if s['week']%17==0 and leader['honesty']<50 and rng.random()<.4:
-            p['funds']=clamp(p['funds']+10,0,200)
-            scandal=event(s,'scandal',p['name']+': обнаружено несоответствие заявленных и использованных средств',leader['district'],'rights',pid)
-            leader['memory'].append(scandal['id']);del leader['memory'][:-40]
-        p['factions']['purists']=clamp(p['factions']['purists']+(.2 if pid in s['governing'] else -.1))
-        if s['week']%3==0:
-            targets=[]
-            for did in s['districts']:
-                cs=[c for c in s['cohorts'] if c['district']==did]
-                urgency={t:sum(c['population']*c['attention'][t] for c in cs)/sum(c['population'] for c in cs) for t in data['topics']}
-                t=max(urgency,key=urgency.get);support=sum(attraction(s,c,pid)[0]*c['population'] for c in cs)/sum(c['population'] for c in cs)
-                targets.append((urgency[t]+(100-support)*.2,did,t))
-            _,did,t=max(targets)
-            if p['funds']>=8:
-                p['funds']-=8;key=did+':'+t;fatigue=p['fatigue'].get(key,0);p['fatigue'][key]=fatigue+1
-                e=event(s,'campaign',p['name']+' обсуждает '+data['topics'][t]['name'].lower()+' в '+s['districts'][did]['name'],did,t,pid)
-                e['salience']=1/(1+fatigue*.25)
-                p['strategy']='мобилизация' if f['shares'].get(pid,0)>35 else 'убеждение'
-                for c in s['cohorts']:
-                    if c['district']==did:
-                        c['familiarity'][pid]=clamp(c['familiarity'][pid]+2/(1+fatigue))
-                        if p['strategy']=='мобилизация' and c['identity']==pid:c['turnout_bias']=clamp(c['turnout_bias']+1,-10,10)
-        if s['week']%6==0 and len([x for x in s['promises'] if x['party']==pid and x['status']=='open'])<2:
-            did=max(s['districts'],key=lambda d:100-s['districts'][d]['infra']+100-s['districts'][d]['jobs'])
-            topic='services' if s['districts'][did]['infra']<s['districts'][did]['jobs'] else 'jobs'
-            field='infra' if topic=='services' else 'jobs'
-            promise={'id':'p'+str(len(s['promises']))+'_'+str(s['week']),'party':pid,'district':did,'topic':topic,'field':field,
-                     'baseline':s['districts'][did][field],'goal':8.0,'deadline':s['week']+8,'status':'open','made':s['week']}
-            s['promises'].append(promise)
-            event(s,'promise',p['name']+' обещает улучшить '+data['topics'][topic]['name'].lower()+' в '+s['districts'][did]['name']+' за 8 недель',did,topic,pid)
-        if s['week']%13==0 and f['shares'].get(pid,0)<18:
-            # Parties perceive noisy preference, not exact omniscience.
-            axis=rng.choice(list(data['axes']));sample=rng.sample(s['cohorts'],min(16,len(s['cohorts'])))
-            perceived=sum(c['ideology'][axis] for c in sample)/len(sample)+rng.gauss(0,8)
-            shift=clamp((perceived-p['ideology'][axis])*.12,-8,8);p['ideology'][axis]=clamp(p['ideology'][axis]+shift,-100,100)
-            p['factions']['purists']=clamp(p['factions']['purists']+abs(shift))
-            event(s,'platform',p['name']+' меняет программу после оценки общественных настроений',party=pid)
-        if p['factions']['purists']>80 and len(active)<6 and rng.random()<.06:
-            child=create_party(s,data,p['name']+' — группа '+str(s['next_party']),p['actual_ideology'])
-            s['parties'][child]['organization']=p['organization']*.3;p['organization']*=.7;p['factions']['purists']=50
-            event(s,'split','Из '+p['name']+' выделилось новое движение',party=child)
-    if s['week']%4==0:
-        est=forecast(s)['shares'];s['polls'].append({'week':s['week'],'shares':{p:clamp(v+rng.gauss(0,3)) for p,v in est.items()},'error':3.0});del s['polls'][:-24]
+    agents.politics(s,data,rng,event)
 
 
 def government(s,data,rng):
@@ -388,7 +349,9 @@ def government(s,data,rng):
 def society(s,data,rng):
     for firm in s['firms'].values():
         d=s['districts'][firm['district']]
-        firm['demand']+=.08*(d['income']-firm['demand'])
+        local=[c for c in s['cohorts'] if c['district']==firm['district'] and c['population']]
+        consumption=sum(c['population']*(c['household']['paid']/max(1,c['household']['needs']) if c['household']['needs'] else 1) for c in local)/max(1,sum(c['population'] for c in local))
+        firm['demand']+=.08*(d['income']*consumption-firm['demand'])
         firm['capital']=clamp(firm['capital']+(firm['demand']-firm['wage'])*.06-max(0,d['weather'])*.02)
         if s['week']%8==0:
             if firm['capital']>62:
@@ -465,7 +428,7 @@ def society(s,data,rng):
             if candidates:
                 origin=rng.choice(candidates);dest=next((c for c in s['cohorts'] if c['district']==richest and set(c['tags'])==set(origin['tags'])),None)
                 if dest:
-                    movers=max(1,int(origin['population']*.02));origin['population']-=movers;dest['population']+=movers
+                    movers=max(1,int(origin['population']*.02));living.transfer_mean(origin,dest,movers);origin['population']-=movers;dest['population']+=movers
                     event(s,'migration',str(movers)+' жителей переехали из '+s['districts'][poorest]['name']+' в '+s['districts'][richest]['name'],richest,'jobs')
     for did,d in s['districts'].items():d['population']=sum(c['population'] for c in s['cohorts'] if c['district']==did)
     for aid,a in list(s['actors'].items()):
@@ -491,6 +454,7 @@ def create_party(s,data,name,ideology):
     s['parties'][pid]={'name':name.strip(),'aliases':[name.strip().lower()],'ideology':dict(ideology),'actual_ideology':dict(ideology),'leader':aid,'color':'#718B69','active':True,'trust':50.0,'organization':10.0,'funds':35.0,'competence':50.0,'factions':{'pragmatists':50.0,'purists':50.0},'fatigue':{},'strategy':'убеждение','coalition_history':[]}
     for c in s['cohorts']:
         c['trust'][pid]=50;c['memory'][pid]=0;c['familiarity'][pid]=10;c['perceived'][pid]=dict(ideology)
+    agents.initialize(s)
     return pid
 
 
@@ -502,6 +466,7 @@ def retire_actor(s,data,aid,reason):
         if p['active'] and p['leader']==aid:
             successor='a'+str(len(s['actors']))
             replacement=copy.deepcopy(a);replacement.update({'name':'Преемник '+a['name'],'age':34,'alive':True,'influence':max(20,a['influence']-12),'memory':[e['id']]})
+            replacement['decision']={'week':0,'action':'rest','target':'','topic':'','reason':'Новый лидер ещё не принял решение','options':[],'event':0}
             s['actors'][successor]=replacement;p['leader']=successor;p['organization']=clamp(p['organization']-6)
     return e
 
@@ -556,6 +521,7 @@ def advance(s,data):
     rng=random.Random(s['week_seed']);start=s['event_id']
     power_effects(s,data)
     society(s,data,rng)
+    living.tick(s,data,rng,event)
     politics(s,data,rng)
     government(s,data,rng)
     information(s,data,rng)
@@ -566,7 +532,7 @@ def advance(s,data):
     return {'events':[e for e in s['events'] if e['id']>=start],'election':result}
 
 
-def validate_state(s,data):
+def validate_state(s,data,legacy=False):
     def walk(x):
         if isinstance(x,float) and not math.isfinite(x):raise DataError('god save: NaN/Infinity')
         if isinstance(x,dict):
@@ -577,7 +543,7 @@ def validate_state(s,data):
         elif not isinstance(x,(str,int,float,bool,type(None))):raise DataError('god save: неизвестный тип')
     walk(s)
     template_keys={'schema','seed','week_seed','week','revision','energy','event_id','districts','parties','cohorts','actors','firms','links','events','powers','promises','projects','movements','elections','governing','budget','rules','effects','direct_log','editor_used','next_party','polls','media_trust'}
-    if not isinstance(s,dict) or set(s)!=template_keys or type(s['schema']) is not int or s['schema']!=SCHEMA:raise DataError('god save: схема нового режима, не сохранение кандидата')
+    if not isinstance(s,dict) or set(s)!=template_keys or type(s['schema']) is not int or s['schema']!=(1 if legacy else SCHEMA):raise DataError('god save: схема нового режима, не сохранение кандидата')
     for key in ('seed','week_seed','week','revision','event_id','next_party'):
         if type(s[key]) is not int or s[key]<0:raise DataError('god save: '+key)
     if s['week']<1 or not 0<=s['energy']<=s['rules']['energy_max']:raise DataError('god save: время / влияние')
@@ -643,6 +609,9 @@ def validate_state(s,data):
         if x['party'] not in s['parties'] or x['district'] not in s['districts'] or x['topic'] not in data['topics'] or x['status'] not in ('open','kept','partial','broken','cancelled'):raise DataError('god save: обещание')
     for x in s['projects']:
         if x['party'] not in s['parties'] or x['district'] not in s['districts'] or x['field'] not in ('infra','jobs'):raise DataError('god save: проект')
+    if not legacy:
+        for c in s['cohorts']:living.validate(c,numeric)
+        agents.validate(s,data,numeric)
     return s
 
 
@@ -651,7 +620,7 @@ class World:
         import secrets
         if seed is None:seed=secrets.randbits(64)
         if type(seed) is not int or not 0<=seed<2**64:raise RuleError('Зерно города: целое 0..2^64−1')
-        self.data=data or load_data();self.state=new_state(self.data,seed);validate_state(self.state,self.data);self.undo_buffer=[]
+        self.data=data or load_data();self.state=new_state(self.data,seed);validate_state(self.state,self.data);self.undo_buffer=[];self.migration_notice=''
 
     def step(self,weeks=1,stop_at_election=True):
         if type(weeks) is not int or not 1<=weeks<=104:raise RuleError('1–104 недели за запуск')
@@ -693,10 +662,19 @@ class World:
             path=Path(path)
             if path.stat().st_size>20_000_000:raise DataError('Сохранение слишком большое')
             obj=load_json(path);payload=obj['payload']
-            if obj['checksum']!=fingerprint(payload) or payload['format']!='god-world' or payload['schema']!=SCHEMA or payload['rules']!=fingerprint(self.data):raise DataError('god save: неверный формат, контрольная сумма или правила')
-            scratch=copy.deepcopy(payload['state']);validate_state(scratch,self.data)
+            if obj['checksum']!=fingerprint(payload) or payload['format']!='god-world':raise DataError('god save: неверный формат или контрольная сумма')
+            scratch=copy.deepcopy(payload['state']);notice=''
+            if payload['schema']==1 and payload['rules']==LEGACY_RULES:
+                old_data=copy.deepcopy(self.data);old_data.pop('living');old_data['schema']=1
+                if fingerprint(old_data)!=LEGACY_RULES:raise DataError('Миграция доступна только для штатных правил 0.8.0 → 0.8.1')
+                validate_state(scratch,old_data,legacy=True)
+                for c in scratch['cohorts']:living.initialize(c,scratch['week'])
+                agents.initialize(scratch);scratch['schema']=SCHEMA
+                notice='Сейв 0.8.0 перенесён в 0.8.1. Население, партии, история и seed сохранены; бюджеты и планы инициализированы, а не восстановлены из прошлого. Сохраните под новым именем: обратной совместимости нет.'
+            elif payload['schema']!=SCHEMA or payload['rules']!=fingerprint(self.data):raise DataError('god save: неподдерживаемая схема или правила')
+            validate_state(scratch,self.data)
         except (OSError,KeyError,TypeError,ValueError) as exc:raise DataError('Не удалось загрузить мир: '+str(exc)) from exc
-        self.state=scratch;self.undo_buffer=[]
+        self.state=scratch;self.undo_buffer=[];self.migration_notice=notice
 
     def summary(self):
         s=self.state;f=forecast(s)

@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "name": "Город помнит — наблюдатель и бог",
   "axes": {
     "economy": "Экономика",
@@ -367,5 +367,22 @@
       "field": "infra",
       "cost": 20
     }
+  },
+  "living": {
+    "base_income": 1500,
+    "income_factor": 75,
+    "family_earners": 1.6,
+    "family_cost": 1.35,
+    "pension_factor": 0.78,
+    "food": 1250,
+    "housing": 650,
+    "housing_income": 14,
+    "transport": 350,
+    "health": 180,
+    "dependents": 500,
+    "study_fee": 180,
+    "side_income": 650,
+    "interest": 0.003,
+    "credit_weeks": 8
   }
 }
