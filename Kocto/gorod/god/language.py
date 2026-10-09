@@ -7,6 +7,7 @@ import re
 from ..engine import RuleError, DataError, DATA_DIR, load_json
 from .. import neural,nlu
 from .world import affected,apply_power
+from . import civic
 import copy
 
 @dataclass
@@ -43,11 +44,12 @@ def parse(world,text):
     for index,piece in enumerate(pieces,1):
         low=piece.lower().replace('ё','е');reasons=[]
         if '?' in low or re.search(r'\b(?:если|когда|иначе|либо|кроме|однако|но)\b',low):reasons.append('Условия и альтернативы требуют механики отложенных событий; они пока не исполняются автоматически')
-        if re.search(r'\bне\s+(?:буду|хочу|делать|созда|увелич|сниз|усил|раскры|посыл|измен|выз|исцел)[а-я]*',low):reasons.append('Это отрицание действия')
+        if re.search(r'\bне\s+(?:буду|хочу|делать|созда|увелич|сниз|усил|раскры|посыл|измен|выз|исцел|освобод|облегч|най|свест|устро)[а-я]*',low):reasons.append('Это отрицание действия')
         if any(x in low for x in ('распустить парти','популярност','процент голос','заставить голос','победить на выбор','добавить 20%')):reasons.append('Назначение политического результата — только через меню прямого управления')
         if re.search(r'[«»"“”]|\b(?:сказал|сказала|вчера|позавчера|он хочет|она хочет|он|она|они|партия|люди)\b',low):reasons.append('Цитата или прошлое событие не считаются командой')
         powers=[(sum(hit(low,a) for a in spec['aliases']),key) for key,spec in world.data['powers'].items()]
-        ranked=sorted(powers,reverse=True)
+        specialized=[(n,k) for n,k in powers if n and k in civic.NEW_POWERS]
+        ranked=sorted(specialized if specialized else powers,reverse=True)
         scores=model().predict(nlu.tokens(piece))
         if scores:plan.candidates.append({'part':index,'source':'локальная MLP','scores':[{ 'power':k,'score':round(v,4)} for k,v in sorted(scores.items(),key=lambda x:(-x[1],x[0]))[:3]]})
         if not ranked[0][0]:
@@ -84,6 +86,17 @@ def parse(world,text):
         if power:
             cmd={'power':power,'target':target,'topic':topic,'strength':strength,'duration':duration}
             if event_id is not None:cmd['event_id']=event_id
+            if power=='discovery':
+                match=re.search(r'\b(?:документ[а-я]*\s*)?d(\d+)\b',low)
+                if match:cmd['document_id']='D'+match.group(1)
+                else:plan.blocked.append('Часть '+str(index)+': укажите существующий документ D…')
+            if power=='encounter':
+                actor_ids=re.findall(r'\ba\d+\b',low)
+                if len(actor_ids)==2:cmd.update(actor_a=actor_ids[0],actor_b=actor_ids[1])
+                else:plan.blocked.append('Часть '+str(index)+': укажите два ID персонажей, например a0 и a3')
+            if power=='coordination':
+                match=re.search(r'\bg(\d+)\b',low)
+                if match:cmd['association_id']='G'+match.group(1)
             plan.commands.append(cmd)
     if not plan.blocked:
         scratch=copy.deepcopy(world.state)

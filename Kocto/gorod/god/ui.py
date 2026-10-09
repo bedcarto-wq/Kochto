@@ -14,7 +14,7 @@ from ..shortcuts import ShortcutStore,normalize_clipboard
 from .world import World,forecast,attraction,affected
 from .language import parse,execute
 from . import network as N
-from . import living,agents
+from . import living,agents,civic
 from ..p2p import Link, NetworkError, new_code, DEFAULT_PORT
 from .world import fingerprint
 import queue
@@ -84,13 +84,13 @@ class App(tk.Tk):
         self.custom_inner.bind('<Configure>',lambda e:self._shortcut_scroll());self.custom_canvas.bind('<Configure>',lambda e:self._shortcut_scroll())
         self.refresh_shortcuts()
         self.preview=ttk.LabelFrame(bottom,text='Предварительный разбор — ничего не выполнено');self.preview.pack(fill='x',pady=4)
-        self.preview_text=ttk.Label(self.preview,text='Пример: Усилить внимание рабочих к экологии; затем улучшить транспорт в Заречье',wraplength=1150,justify='left');self.preview_text.pack(fill='x',padx=8,pady=4)
+        self.preview_text=ttk.Label(self.preview,text='Пример: Усилить внимание рабочих к экологии; затем улучшить транспорт в Заречье',wraplength=1150,justify='left');self.preview_text.pack(fill='x',padx=8,pady=4);self.preview.bind('<Configure>',lambda e:self.preview_text.configure(wraplength=max(300,e.width-24)))
         buttons=ttk.Frame(self.preview);buttons.pack(fill='x',padx=6,pady=4)
         self.apply_btn=self._button(buttons,'Применить вмешательство',self.apply);self.apply_btn.configure(state='disabled')
         self._button(buttons,'Отмена',self.cancel)
         self.tabs=ttk.Notebook(self);self.tabs.pack(fill='both',expand=True,padx=8,pady=4)
         frames={}
-        for key,label in [('city','Город'),('people','Избиратели'),('homes','Домохозяйства'),('parties','Политика'),('history','Хроника'),('election','Выборы'),('actors','Люди и связи'),('limits','Что реализовано')]:
+        for key,label in [('city','Город'),('people','Избиратели'),('homes','Домохозяйства'),('civic','Общество'),('parties','Политика'),('history','Хроника'),('election','Выборы'),('actors','Люди и связи'),('limits','Что реализовано')]:
             frames[key]=ttk.Frame(self.tabs);self.tabs.add(frames[key],text=label)
         self.frames=frames
         city=ttk.Panedwindow(frames['city'],orient='horizontal');city.pack(fill='both',expand=True)
@@ -126,8 +126,18 @@ class App(tk.Tk):
         self.elections=self._text(frames['election'],16)
         self.actors=self._tree(frames['actors'],[('name','Персонаж'),('role','Роль'),('goal','Собственная цель'),('age','Возраст'),('status','Состояние')],height=8);self.actors.column('goal',width=300);self.actors.bind('<<TreeviewSelect>>',self.actor_details)
         self.actor_text=self._text(frames['actors'],5)
+        sub=ttk.Notebook(frames['civic']);sub.pack(fill='both',expand=True)
+        self.civic_views={};self.civic_details={}
+        for key,label,cols in [('institutions','Учреждения',[('id','ID'),('name','Учреждение / район'),('capacity','Вместимость'),('staff','Персонал %'),('served','Обслужено'),('queue','Ожидание'),('delay','Задержка')]),
+            ('projects','Проекты',[('id','ID'),('party','Партия'),('stage','Стадия'),('progress','Готовность %'),('spent','Расход'),('opening','Объявлено открытие')]),
+            ('associations','Объединения',[('id','ID'),('district','Район'),('members','Участники'),('resources','Ресурсы'),('fatigue','Усталость'),('status','Состояние')]),
+            ('documents','Документы',[('id','ID'),('project','Проект'),('kind','Документ'),('stage','Факт на дату'),('access','Доступ'),('published','Опубликован')])]:
+            frame=ttk.Frame(sub);sub.add(frame,text=label);tree=self._tree(frame,cols,height=8);tree.column('id',width=100,minwidth=70)
+            if key=='institutions':tree.column('name',width=260,minwidth=260)
+            tree.bind('<<TreeviewSelect>>',lambda e,k=key:self.civic_details_show(k));self.civic_views[key]=tree;self.civic_details[key]=self._text(frame,6)
+        frame=ttk.Frame(sub);sub.add(frame,text='Причины изменений');self.cause_text=self._text(frame,16)
         self.limits=self._text(frames['limits'],18)
-        self._set(self.limits,'0.8.1 — следующий слой рабочей основы новой концепции, не все 132 пункта в полном объёме.\n\nРаботают: автономные недели; 144 когорты с пересекающимися признаками; идеологическая близость и оценки каждой партии; отдельная явка; партии, агитация и смена программ; обещания и проекты; коалиции; три правила выборов; информация и известные факты; инфраструктура, занятость, миграция; движения и преемники; косвенные силы; прямой редактор; контрольная сумма сохранений.\n\nУпрощены: внутри когорт распределение описано средним и разбросом; проекты и хозяйство агрегированы; отношения индивидуальны только у ключевых лиц; журналистика и память событий имеют небольшое число правил.\n\nДобавлены: бюджеты представительных домохозяйств (расходы, резерв, кредит, проценты, нехватка); решения о работе, курсе, заботе и взаимопомощи. Политики сравнивают действия по стоимости, характеру и сохранённой выборке, а не читают точные предпочтения всех жителей. Это прозрачный планировщик, не нейросетевые личности.\n\nЕщё не готовы: отдельные индивидуальные домохозяйства, подробный жизненный план каждого гражданина, второй тур, объединение партий, индивидуальное обучение стратегий и отложенные условные чудеса. P2P бога — два доверенных наблюдателя/участника одного мира с авторитетным создателем.\n\nСвободный ввод не означает произвольный исполняемый код. Неподдерживаемая механика блокируется. Нейросеть предлагает варианты; условия и приказы не превращаются в готовую победу партии.\n\nПодробный план и критерии: ПЛАН_0_8.md в репозитории.')
+        self._set(self.limits,'0.8.5 — следующий слой рабочей основы новой концепции, не все 132 пункта в полном объёме.\n\nРаботают: автономные недели; 144 когорты с пересекающимися признаками; идеологическая близость и оценки каждой партии; отдельная явка; партии, агитация и смена программ; обещания и проекты; коалиции; три правила выборов; информация и известные факты; инфраструктура, занятость, миграция; движения и преемники; косвенные силы; прямой редактор; контрольная сумма сохранений.\n\nУпрощены: внутри когорт распределение описано средним и разбросом; проекты и хозяйство агрегированы; отношения индивидуальны только у ключевых лиц; журналистика и память событий имеют небольшое число правил.\n\nВ 0.8.5: учреждения имеют вместимость, персонал и очереди; жители создают объединения и оценивают ответы партий; проекты проходят согласование, финансирование, выполнение и набор персонала. Документы хранят факты на дату, журналист сопоставляет объявление и акт. Новые силы создают возможность встречи, доступ к документу, свободное время и облегчают координацию. Ни встреча, ни публикация, ни поддержка партии не гарантированы. Причинный архив ограничен; изменения привлекательности разложены по компонентам, но вклад каждого отдельного события не вычисляется.\n\nДобавлены: бюджеты представительных домохозяйств (расходы, резерв, кредит, проценты, нехватка); решения о работе, курсе, заботе и взаимопомощи. Политики сравнивают действия по стоимости, характеру и сохранённой выборке, а не читают точные предпочтения всех жителей. Это прозрачный планировщик, не нейросетевые личности.\n\nЕщё не готовы: отдельные индивидуальные домохозяйства, подробный жизненный план каждого гражданина, второй тур, объединение партий, индивидуальное обучение стратегий и отложенные условные чудеса. P2P бога — два доверенных наблюдателя/участника одного мира с авторитетным создателем.\n\nСвободный ввод не означает произвольный исполняемый код. Неподдерживаемая механика блокируется. Нейросеть предлагает варианты; условия и приказы не превращаются в готовую победу партии.\n\nПодробный план и критерии: ПЛАН_0_8.md в репозитории.')
 
     def _set(self,widget,text):
         widget.configure(state='normal');widget.delete('1.0','end');widget.insert('1.0',text);widget.configure(state='disabled')
@@ -161,9 +171,14 @@ class App(tk.Tk):
             for c in p.commands:
                 topic=self.world.data['topics'].get(c['topic'],{}).get('name','без заданной темы')
                 lines.append(self.world.data['powers'][c['power']]['name']+' · '+self.target_name(c['target'])+' · '+topic+' · сила '+str(c['strength'])+' · '+str(c['duration'])+' нед.')
+                refs=[]
+                for key in ('actor_a','actor_b','document_id','association_id'):
+                    if c.get(key):refs.append(c[key]+(' · '+self.world.state['actors'].get(c[key],{}).get('name','неизвестный персонаж') if key.startswith('actor_') else ''))
+                if refs:lines.append('Участники / объект: '+', '.join(refs))
             lines+=p.blocked
+            if any(c['power'] in civic.NEW_POWERS for c in p.commands):lines.append('Меняется возможность: встреча, публикация и выбор жителей не гарантированы.')
             if p.ready:lines.append('Цена: '+str(p.cost)+' влияния. Будут изменены обстоятельства, не итог голосования.')
-            self.preview_text.configure(text='\n'.join(lines[:4]) or 'Нет исполнимого вмешательства');self.apply_btn.configure(state='normal' if p.ready else 'disabled')
+            self.preview_text.configure(text='\n'.join(lines) or 'Нет исполнимого вмешательства');self.apply_btn.configure(state='normal' if p.ready else 'disabled')
         except (RuleError,DataError) as exc:self.cancel();messagebox.showerror('Разбор',str(exc),parent=self)
 
     def apply(self):
@@ -209,7 +224,7 @@ class App(tk.Tk):
         promise_status={'open':'в силе','kept':'выполнено','partial':'частично','broken':'сорвано','cancelled':'отменено'}
         promises=[s['parties'][x['party']]['name']+' / '+s['districts'][x['district']]['name']+' / '+self.world.data['topics'][x['topic']]['name']+' · '+promise_status.get(x['status'],x['status'])+' · до недели '+str(x['deadline']) for x in s['promises'][-12:]]
         firms=['Предприятие: '+f['name']+' · работников '+str(f['workers'])+' · капитал '+str(round(f['capital'])) for f in s['firms'].values()]
-        self._set(self.political_text,'Прогноз наблюдателя — не знания агента. Политики выбирают действия по своей неполной выборке.\nОценочная явка: '+str(round(v['forecast']['turnout'],1))+'%.\nБюджет города: '+str(round(s['budget']))+'; незавершённых проектов: '+str(len(s['projects']))+'; общественных движений: '+str(sum(m['active'] for m in s['movements']))+'\n'+'\n'.join(firms)+'\n\nОБЕЩАНИЯ\n'+'\n'.join(promises))
+        self._set(self.political_text,'Прогноз наблюдателя — не знания агента. Политики выбирают действия по своей неполной выборке.\nОценочная явка: '+str(round(v['forecast']['turnout'],1))+'%.\nБюджет города: '+str(round(s['budget']))+'; незавершённых проектов: '+str(sum(p['stage'] not in ('operating','rejected') for p in s['projects']))+'; общественных движений: '+str(sum(m['active'] for m in s['movements']))+'\n'+'\n'.join(firms)+'\n\nОБЕЩАНИЯ\n'+'\n'.join(promises))
         self.clear(self.history)
         for e in reversed(s['events'][-180:]):self.history.insert('','end',iid=str(e['id']),values=(e['id'],e['week'],e['kind'],e['text']))
         self.clear(self.actors)
@@ -221,7 +236,7 @@ class App(tk.Tk):
             for pid,votes in e['votes'].items():lines.append(s['parties'][pid]['name']+': '+str(votes)+' голосов · '+str(round(e['shares'][pid],1))+'% · '+str(e['seats'][pid])+' мест')
             lines+=['Правительство: '+', '.join(s['parties'][p]['name'] for p in e['government']),'']
         if not s['elections']:lines.append('Первые выборы ещё не состоялись. Нажмите «До выборов».')
-        self._set(self.elections,'\n'.join(lines));self.draw_city()
+        self._set(self.elections,'\n'.join(lines));self.draw_city();self.refresh_civic()
         for key,callback,detail in [('homes',self.household_details,self.home_text),('actors',self.actor_details,self.actor_text),('people',self.cohort_details,self.details),('history',self.event_details,self.event_text)]:
             tree=getattr(self,key);old=selected[key]
             if old and tree.exists(old[0]):tree.selection_set(old[0]);callback()
@@ -243,7 +258,7 @@ class App(tk.Tk):
         selected=self.people.selection()
         if not selected:return
         c=next(x for x in self.world.state['cohorts'] if x['id']==selected[0]);lines=[', '.join(self.world.data['tags'][t] for t in c['tags']), 'Один человек входит в несколько признаков, но учитывается в населении один раз.','Среднее + разброс; это не подробная биография каждого гражданина.']
-        part_names={'ideology':'идеология','trust':'доверие','memory':'память','leader':'лидер','familiarity':'узнаваемость','identity':'идентичность','editor':'прямой бонус'}
+        part_names={'ideology':'идеология','trust':'доверие','memory':'память','leader':'лидер','familiarity':'узнаваемость','identity':'идентичность','editor':'прямой бонус','civic':'общественные связи'}
         for pid,p in self.world.state['parties'].items():
             if p['active']:
                 score,parts=attraction(self.world.state,c,pid);lines.append(p['name']+' · '+str(round(score,1))+'/100 · '+', '.join(part_names[k]+'='+str(round(v,1)) for k,v in parts.items()))
@@ -256,6 +271,7 @@ class App(tk.Tk):
         for eid in e['causes']:
             parent=next((p for p in self.world.state['events'] if p['id']==eid),None);causes.append(parent['text'] if parent else 'Причина #'+str(eid)+' вышла за предел сохранённой хроники')
         reached=sum(c['population']*e['reach'].get(c['id'],0) for c in self.world.state['cohorts'])
+        causes=['  '*row['depth']+'#'+str(row['id'])+' '+row['text'] for row in civic.ancestry(self.world.state,e['id'])]
         self._set(self.event_text,e['text']+'\nФакт: '+str(e['truth'])+'; приблизительный охват: '+str(round(reached))+' жителей\nПричины: '+('; '.join(causes) or 'самостоятельные решения / текущие условия')+'\nИзбиратели знают это не одновременно. ID можно использовать: Раскрыть событие '+str(e['id']))
 
     def actor_details(self,event=None):
@@ -263,7 +279,7 @@ class App(tk.Tk):
         if not ids:return
         a=self.world.state['actors'][ids[0]];dec=a['decision']
         relations=[self.world.state['actors'][k]['name']+': '+str(v) for k,v in a['relations'].items() if k in self.world.state['actors']]
-        lines=[a['name']+' · '+a['goal'],'Честность '+str(a['honesty'])+' · компетентность '+str(a['competence'])+' · влияние '+str(a['influence']),
+        lines=[ids[0]+' · '+a['name']+' · '+a['goal'],'Честность '+str(a['honesty'])+' · компетентность '+str(a['competence'])+' · влияние '+str(a['influence']),
                'Решение на неделе '+str(dec['week'])+': '+agents.NAMES[dec['action']]+' · '+dec['reason']]
         for r in dec['options']:lines.append(agents.NAMES[r['action']]+': оценка '+str(round(r['score'],1))+' · '+r['reason'])
         pid=next((p for p,x in self.world.state['parties'].items() if x['leader']==ids[0]),None)
@@ -271,6 +287,46 @@ class App(tk.Tk):
             i=self.world.state['parties'][pid]['intel'];lines.append('Знания политика: выборка '+str(i['sample'])+' наблюдений, неделя '+str(i['week'])+'; оценки с шумом, не точные предпочтения всех жителей.')
         else:lines.append('У этой роли ещё нет общего планировщика: её автономные правила остаются частичными.')
         lines.append('Отношения (частичная модель): '+', '.join(relations));self._set(self.actor_text,'\n'.join(lines))
+
+    def refresh_civic(self):
+        s=self.world.state;z=s['civic'];previous={k:t.selection() for k,t in self.civic_views.items()}
+        for t in self.civic_views.values():self.clear(t)
+        for iid,i in z['institutions'].items():self.civic_views['institutions'].insert('','end',iid=iid,values=(iid,civic.KINDS[i['kind']]+' / '+s['districts'][i['district']]['name'],round(i['capacity']),round(i['staff']),round(i['served']),round(i['queue']),round(i['delay'],1)))
+        for p in reversed(s['projects']):self.civic_views['projects'].insert('','end',iid=p['id'],values=(p['id'],s['parties'][p['party']]['name'],civic.STAGES[p['stage']],round(p['progress']),round(p['spent']),'да' if p['public_open'] else 'нет'))
+        for g in z['associations']:self.civic_views['associations'].insert('','end',iid=g['id'],values=(g['id'],s['districts'][g['district']]['name'],sum(g['members'].values()),round(g['resources']),round(g['fatigue']),'действует' if g['active'] else 'архив'))
+        kinds={'proposal':'предложение','status':'отчёт','inspection':'акт проверки','opening_claim':'объявление открытия'}
+        for d in reversed(z['documents']):self.civic_views['documents'].insert('','end',iid=d['id'],values=(d['id'],d['project'],kinds.get(d['kind'],d['kind']),civic.STAGES[d['stage']],round(d['access'],2),'да' if d['published'] else 'нет'))
+        for key,t in self.civic_views.items():
+            if previous[key] and t.exists(previous[key][0]):t.selection_set(previous[key][0]);self.civic_details_show(key)
+            else:self._set(self.civic_details[key],'Выберите строку. Это данные мира: участники знают не всё, что видит бог.')
+        lines=['Изменение средней привлекательности партий, не проценты голосов.','Компоненты — измеренный сдвиг. Связанные события — контекст, не доказанный вклад каждого события.','']
+        for row in reversed(z['changes'][-8:]):
+            lines.append('Неделя '+str(row['week'])+' · '+s['parties'][row['party']]['name']+' · '+str(round(row['delta'],3))+' пункта')
+            lines.append(', '.join({'ideology':'идеология','trust':'доверие','memory':'память','leader':'лидер','familiarity':'узнаваемость','identity':'идентичность','editor':'прямой бонус','civic':'объединения'}.get(k,k)+' '+str(round(v,3)) for k,v in row['parts'].items() if abs(v)>.001))
+            for eid in row['causes'][:3]:
+                lines.extend('  '*r['depth']+'#'+str(r['id'])+' '+r['text'] for r in civic.ancestry(s,eid,5))
+            lines.append('')
+        self._set(self.cause_text,'\n'.join(lines))
+
+    def civic_details_show(self,key):
+        tree=self.civic_views[key];ids=tree.selection()
+        if not ids:return
+        s=self.world.state;z=s['civic'];iid=ids[0];lines=[]
+        if key=='institutions':
+            i=z[key][iid];lines=[iid+' · '+civic.KINDS[i['kind']], 'Спрос '+str(round(i['demand']))+' · реально обслужено '+str(round(i['served']))+' · не обслужено '+str(round(i['queue'])), 'Вместимость '+str(round(i['capacity']))+' · персонал '+str(round(i['staff']))+'% · состояние '+str(round(i['condition']))+'%', 'Новое здание без персонала не устраняет очередь. Задержка — модельный индекс, не реальные часы.']
+            if i['cause']:lines.extend('#'+str(r['id'])+' '+r['text'] for r in civic.ancestry(s,i['cause'],8))
+        elif key=='projects':
+            p=next(p for p in s[key] if p['id']==iid);lines=[iid+' · '+civic.STAGES[p['stage']], 'Стоимость '+str(round(p['cost'],1))+' · списано '+str(round(p['spent'],1))+' · готовность '+str(round(p['progress'],1))+'%', 'Политическое объявление открытия: '+('есть' if p['public_open'] else 'нет')+'; реально работает: '+('да' if p['stage']=='operating' else 'нет'), 'Учреждение: '+(p['institution'] or 'перенесённый проект прежней версии')]
+            lines.extend('  '*r['depth']+'#'+str(r['id'])+' '+r['text'] for r in civic.ancestry(s,p['last_event'],12) if p['last_event'])
+        elif key=='associations':
+            g=next(g for g in z[key] if g['id']==iid);lines=[iid+' · требование: задержка не выше '+str(round(g['demand'],1)), 'Представитель: '+g['leader']+'; участники — подмножество жителей, не добавочное население.', 'Членство в нескольких объединениях возможно; поддержка требования не означает поддержку партии.']
+            for pid,pos in g['positions'].items():lines.append(s['parties'][pid]['name']+': '+civic.REACTIONS[pos['reaction']]+' · отношение участников '+str(round(g['stances'].get(pid,0),1)))
+            lines.append('Когорты-участники: '+', '.join(cid+': '+str(n) for cid,n in g['members'].items()))
+        else:
+            d=next(d for d in z[key] if d['id']==iid);lines=[iid+' · проект '+d['project']+' · неделя '+str(d['week']), 'Снимок факта на дату: '+civic.STAGES[d['stage']]+' · готовность '+str(round(d['progress'],1))+'% · расход '+str(round(d['spent'],1)), 'Объявлено открытие: '+('да' if d['public_open'] else 'нет')+' · опубликовано: '+('да' if d['published'] else 'нет')+' · проверено: '+('да' if d['checked'] else 'нет'), 'Доступ можно облегчить силой: Облегчить обнаружение документа '+iid+'. Это не заставит журналиста публиковать.']
+            for case in z['cases']:
+                if iid in case['documents']:lines.append('Расследование '+case['id']+' · '+{'checking':'проверяется','published':'опубликовано','closed':'закрыто'}[case['stage']]+' · '+case['result'])
+        self._set(self.civic_details[key],'\n'.join(lines))
 
     def household_details(self,event=None):
         ids=self.homes.selection()
@@ -359,7 +415,7 @@ class App(tk.Tk):
         if item:self.add_shortcut(item)
 
     def power_menu(self):
-        self.running=False;self.run_btn.configure(text='▶ Наблюдать');dlg=tk.Toplevel(self);dlg.title('Конструктор косвенного вмешательства');dlg.geometry('560x340')
+        self.running=False;self.run_btn.configure(text='▶ Наблюдать');dlg=tk.Toplevel(self);dlg.title('Конструктор косвенного вмешательства');dlg.geometry('650x520')
         fields={};powers=list(self.world.data['powers']);targets=['all']+list(self.world.state['districts'])+list(self.world.data['tags']);topics=['']+list(self.world.data['topics'])
         options=[('power','Механизм',powers,[self.world.data['powers'][p]['name'] for p in powers]),('target','Аудитория',targets,['Весь город']+[self.world.state['districts'].get(t,{}).get('name',self.world.data['tags'].get(t,t)) for t in targets[1:]]),('topic','Тема',topics,['Без темы']+[self.world.data['topics'][t]['name'] for t in topics[1:]])]
         for key,label,ids,names in options:
@@ -367,11 +423,19 @@ class App(tk.Tk):
         values={}
         for key,label,default in [('strength','Сила −30..30',15),('duration','Срок 1..12',4),('event_id','ID факта',1)]:
             row=ttk.Frame(dlg);row.pack(fill='x',padx=12,pady=4);ttk.Label(row,text=label,width=16).pack(side='left');var=tk.StringVar(value=str(default));ttk.Entry(row,textvariable=var,width=10).pack(side='left');values[key]=var
+        aid_list=[a for a,x in self.world.state['actors'].items() if x['alive']]
+        for key,label in [('actor_a','Первый персонаж'),('actor_b','Второй персонаж')]:
+            row=ttk.Frame(dlg);row.pack(fill='x',padx=12,pady=4);ttk.Label(row,text=label,width=20).pack(side='left');box=ttk.Combobox(row,state='readonly',values=[a+' · '+self.world.state['actors'][a]['name'] for a in aid_list],width=38);box.current(0 if key=='actor_a' else min(1,len(aid_list)-1));box.pack(side='left');fields[key]=(box,aid_list)
+        for key,label in [('document_id','Документ D…'),('association_id','Объединение G…')]:
+            row=ttk.Frame(dlg);row.pack(fill='x',padx=12,pady=4);ttk.Label(row,text=label,width=20).pack(side='left');var=tk.StringVar();ttk.Entry(row,textvariable=var,width=16).pack(side='left');values[key]=var
         ttk.Label(dlg,text='Сила меняет среду, не популярность. Положительная погода = опасность; отрицательная = смягчение.',wraplength=520).pack(padx=12,pady=4)
         def apply():
             try:
                 cmd={k:ids[box.current()] for k,(box,ids) in fields.items()};cmd.update({'strength':float(values['strength'].get()),'duration':int(values['duration'].get())})
                 if cmd['power']=='reveal':cmd['event_id']=int(values['event_id'].get())
+                if cmd['power']!='encounter':cmd.pop('actor_a');cmd.pop('actor_b')
+                if cmd['power']=='discovery':cmd['document_id']=values['document_id'].get().strip().upper()
+                if cmd['power']=='coordination' and values['association_id'].get().strip():cmd['association_id']=values['association_id'].get().strip().upper()
                 scratch=copy.deepcopy(self.world.state)
                 from .world import apply_power
                 _,cost=apply_power(scratch,self.world.data,cmd)
@@ -519,7 +583,7 @@ class App(tk.Tk):
         fields={}
         for key,label,default in [('ip','IP создателя / VPN',''),('port','TCP-порт',str(DEFAULT_PORT)),('code','Код создателя',new_code())]:
             row=ttk.Frame(dlg);row.pack(fill='x',padx=12,pady=5);ttk.Label(row,text=label,width=23).pack(side='left');entry=ttk.Entry(row,width=40);entry.insert(0,default);entry.pack(side='left');fields[key]=entry
-        ttk.Label(dlg,text='Оба игрока используют 0.8.1. Ход времени и операции проверяет создатель.\nДля интернета — VPN или проброс порта. Пакеты НЕ шифруются; только доверенные друзья.\nПродолжение: создатель загружает обычный сейв мира и открывает новый код.',wraplength=580).pack(padx=12,pady=8)
+        ttk.Label(dlg,text='Оба игрока используют 0.8.5. Ход времени и операции проверяет создатель.\nДля интернета — VPN или проброс порта. Пакеты НЕ шифруются; только доверенные друзья.\nПродолжение: создатель загружает обычный сейв мира и открывает новый код.',wraplength=580).pack(padx=12,pady=8)
         def connect():
             try:
                 port=int(fields['port'].get());code=fields['code'].get().strip()
