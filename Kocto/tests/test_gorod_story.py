@@ -70,7 +70,7 @@ class StoryTests(unittest.TestCase):
   a=self.world();s=copy.deepcopy(a.state);s['story']['residents'][0]['cohort']='missing'
   with self.assertRaises(DataError):validate_state(s,a.data)
  def test_085_migration_is_free_not_retroactive_story(self):
-  a=World(seed=861);s=copy.deepcopy(a.state);s.pop('story');s['schema']=3;old=previous_data(a.data,3);payload={'format':'god-world','schema':3,'rules':fingerprint(old),'state':s}
+  a=World(seed=861);s=copy.deepcopy(a.state);s.pop('territory',None);s.pop('crises',None);s.pop('territory',None);s.pop('crises',None);s.pop('story');s['schema']=3;old=previous_data(a.data,3);payload={'format':'god-world','schema':3,'rules':fingerprint(old),'state':s}
   with tempfile.TemporaryDirectory() as d:
    p=Path(d)/'085.json';p.write_text(json.dumps({'payload':payload,'checksum':fingerprint(payload)}),encoding='utf-8');raw=p.read_bytes();a.load(p);self.assertIsNone(a.state['story']);self.assertEqual(p.read_bytes(),raw)
  def test_epilogue_does_not_declare_universal_goodness_score(self):

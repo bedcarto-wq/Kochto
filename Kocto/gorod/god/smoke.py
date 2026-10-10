@@ -7,6 +7,7 @@ from pathlib import Path
 from .ui import App
 from .world import forecast,attraction,fingerprint
 from .language import parse
+from . import network as N
 from ..shortcuts import ShortcutStore
 from ..p2p import Link,new_code
 
@@ -42,7 +43,7 @@ def run_checks():
             same=World(seed=1);same.load(path);assert same.state==app.world.state
             # Prior schema, with exact shipped 0.8.0 rules. No invented history.
             import json
-            old=copy.deepcopy(World(seed=87).state);old.pop('story',None);old['schema']=1;old.pop('story',None);old.pop('civic')
+            old=copy.deepcopy(World(seed=87).state);old.pop('territory',None);old.pop('crises',None);old.pop('story',None);old['schema']=1;old.pop('territory',None);old.pop('crises',None);old.pop('story',None);old.pop('civic')
             for c in old['cohorts']:del c['household'];del c['life'];del c['service_pressure'];del c['service_cause']
             for a in old['actors'].values():del a['decision']
             for p in old['parties'].values():del p['intel'];del p['intent']
@@ -75,7 +76,12 @@ def run_checks():
         assert guest.world.state==app.world.state
         guest.dispatch('step',1);pump_until(lambda:not guest.net_busy)
         assert guest.world.state==app.world.state
-        return {'god_ui':True,'god_world':True,'god_clipboard':True,'god_shortcuts':True,'god_save':True,'god_tcp':True,'households':True,'agent_planner':True,'migration_080':True,'institutions':True,'civic_projects':True,'document_ui':True,'scenario_ui':True,'scenario_epilogue':True,'scenario_tcp':True}
+        app.world=World(seed=87,scale='federation');app.refresh();app.link.send({'type':'god-state','snapshot':N.snapshot(app.world)})
+        pump_until(lambda:guest.world.state['territory'] is not None)
+        guest.dispatch('territory',{'op':'select','value':'r1:c0'});pump_until(lambda:not guest.net_busy)
+        assert app.world.state==guest.world.state and app.world.state['territory']['active']=='r1:c0'
+        guest.dispatch('step',1);pump_until(lambda:not guest.net_busy);assert app.world.state==guest.world.state
+        return {'god_ui':True,'god_world':True,'god_clipboard':True,'god_shortcuts':True,'god_save':True,'god_tcp':True,'households':True,'agent_planner':True,'migration_080':True,'institutions':True,'civic_projects':True,'document_ui':True,'scenario_ui':True,'scenario_epilogue':True,'scenario_tcp':True,'federation_ui':True,'federation_tcp':True}
     finally:
         if guest:guest.close()
         app.close()

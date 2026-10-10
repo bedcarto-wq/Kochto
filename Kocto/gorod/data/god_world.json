@@ -1,5 +1,5 @@
 {
-  "schema": 4,
+  "schema": 5,
   "name": "Город помнит — наблюдатель и бог",
   "axes": {
     "economy": "Экономика",
@@ -446,5 +446,35 @@
     "initial_pollution": 72,
     "conversion_cost": 32,
     "conversion_steps": 6
+  },
+  "scale_rules": {
+    "crisis_trigger": 35,
+    "max_cities": 4,
+    "cities": [
+      {
+        "name": "Кочто",
+        "income": 0,
+        "jobs": 0,
+        "infra": 0
+      },
+      {
+        "name": "Зареченск",
+        "income": 8,
+        "jobs": 5,
+        "infra": 7
+      },
+      {
+        "name": "Северный",
+        "income": -7,
+        "jobs": -8,
+        "infra": -5
+      },
+      {
+        "name": "Приозёрск",
+        "income": 3,
+        "jobs": -3,
+        "infra": 9
+      }
+    ]
   }
 }
