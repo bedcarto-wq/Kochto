@@ -129,7 +129,7 @@ class CrisisTechnicalTests(unittest.TestCase):
   payload={'format':'god-world','schema':5,'rules':fingerprint(previous_data(w.data,5)),'state':s}
   with tempfile.TemporaryDirectory() as d:
    p=Path(d)/'087.json';p.write_text(json.dumps({'payload':payload,'checksum':fingerprint(payload)}),encoding='utf-8');v=World();v.load(p)
-   self.assertEqual(v.state['territory']['meta'],s['territory']['meta']);self.assertTrue(all(c['schema']==6 for c in territories.cities(v.state).values()));self.assertEqual(v.state['week_seed'],s['week_seed'])
+   self.assertEqual(v.state['territory']['meta'],s['territory']['meta']);self.assertTrue(all(c['schema']==7 for c in territories.cities(v.state).values()));self.assertEqual(v.state['week_seed'],s['week_seed'])
  def test_repeated_commands_deterministic(self):
   a=World(seed=88,scale='region');b=World(seed=88,scale='region');a.step(8,False);b.step(8,False);self.assertEqual(a.state,b.state)
 

@@ -14,7 +14,7 @@ from ..shortcuts import ShortcutStore,normalize_clipboard
 from .world import World,forecast,attraction,affected
 from .language import parse,execute
 from . import network as N
-from . import living,agents,civic,story,territories,crises,crisis_life
+from . import living,agents,civic,story,territories,crises,crisis_life,upper_politics
 from ..p2p import Link, NetworkError, new_code, DEFAULT_PORT
 from .world import fingerprint
 import queue
@@ -95,7 +95,7 @@ class App(tk.Tk):
         self.frames=frames
         self.world_tree=self._tree(frames['world'],[('name','Город / область'),('population','Жители'),('jobs','Занятость'),('income','Доход'),('pressure','Кризисы')],height=5)
         self.world_tree.column('name',width=260,minwidth=200)
-        wt=ttk.Frame(frames['world']);wt.pack(fill='x',padx=8,pady=4);self._button(wt,'Открыть выбранный город',self.select_city)
+        wt=ttk.Frame(frames['world']);wt.pack(fill='x',padx=8,pady=4);self._button(wt,'Открыть выбранный город',self.select_city);self._button(wt,'Верхние партии',self.upper_menu)
         self.world_text=self._text(frames['world'],9)
         self.crisis_tree=self._tree(frames['crises'],[('id','ID'),('kind','Кризис'),('stage','Стадия'),('material','Тяжесть'),('capacity','Способность'),('division','Раскол')],height=5)
         self.crisis_tree.column('kind',width=230,minwidth=170);self.crisis_tree.column('stage',width=210,minwidth=180)
@@ -154,7 +154,7 @@ class App(tk.Tk):
             tree.bind('<<TreeviewSelect>>',lambda e,k=key:self.civic_details_show(k));self.civic_views[key]=tree;self.civic_details[key]=self._text(frame,6)
         frame=ttk.Frame(sub);sub.add(frame,text='Причины изменений');self.cause_text=self._text(frame,16)
         self.limits=self._text(frames['limits'],18)
-        self._set(self.limits,'0.8.8 — собрания, мандаты, отказы, соглашения, реальные выплаты и восстановление кризисов; сценарий с обязательством и эпилогом; следующий слой рабочей основы новой концепции, не все 132 пункта в полном объёме.\n\nРаботают: автономные недели; 144 когорты с пересекающимися признаками; идеологическая близость и оценки каждой партии; отдельная явка; партии, агитация и смена программ; обещания и проекты; коалиции; три правила выборов; информация и известные факты; инфраструктура, занятость, миграция; движения и преемники; косвенные силы; прямой редактор; контрольная сумма сохранений.\n\nУпрощены: внутри когорт распределение описано средним и разбросом; проекты и хозяйство агрегированы; отношения индивидуальны только у ключевых лиц; журналистика и память событий имеют небольшое число правил.\n\nВ 0.8.5: учреждения имеют вместимость, персонал и очереди; жители создают объединения и оценивают ответы партий; проекты проходят согласование, финансирование, выполнение и набор персонала. Документы хранят факты на дату, журналист сопоставляет объявление и акт. Новые силы создают возможность встречи, доступ к документу, свободное время и облегчают координацию. Ни встреча, ни публикация, ни поддержка партии не гарантированы. Причинный архив ограничен; изменения привлекательности разложены по компонентам, но вклад каждого отдельного события не вычисляется.\n\nДобавлены: бюджеты представительных домохозяйств (расходы, резерв, кредит, проценты, нехватка); решения о работе, курсе, заботе и взаимопомощи. Политики сравнивают действия по стоимости, характеру и сохранённой выборке, а не читают точные предпочтения всех жителей. Это прозрачный планировщик, не нейросетевые личности.\n\nЕщё не готовы: отдельные индивидуальные домохозяйства, подробный жизненный план каждого гражданина, второй тур, объединение партий, индивидуальное обучение стратегий и отложенные условные чудеса. P2P бога — два доверенных наблюдателя/участника одного мира с авторитетным создателем.\n\nСвободный ввод не означает произвольный исполняемый код. Неподдерживаемая механика блокируется. Нейросеть предлагает варианты; условия и приказы не превращаются в готовую победу партии.\n\nНовый слой: участники собраний — существующие жители; мандаты избираются, предложения могут быть отвергнуты. Соглашения имеют сроки и стоимость; помощь идёт через обычный денежный журнал, обучение не мгновенно. P2P передаёт проверяемые дельты и восстанавливает полный снимок при расхождении. Не добавлены полная микропопуляция, отдельные федеральные политики, защищённый транспорт, LOD и вся система из 50 кризисных предложений.\n\nПодробный план: ПЛАН_0_8.md и КРИЗИСЫ_50.md в репозитории.')
+        self._set(self.limits,'0.8.9 — самостоятельные верхние партийные отделения; собрания, мандаты, отказы, соглашения, реальные выплаты и восстановление кризисов; сценарий с обязательством и эпилогом; следующий слой рабочей основы новой концепции, не все 132 пункта в полном объёме.\n\nРаботают: автономные недели; 144 когорты с пересекающимися признаками; идеологическая близость и оценки каждой партии; отдельная явка; партии, агитация и смена программ; обещания и проекты; коалиции; три правила выборов; информация и известные факты; инфраструктура, занятость, миграция; движения и преемники; косвенные силы; прямой редактор; контрольная сумма сохранений.\n\nУпрощены: внутри когорт распределение описано средним и разбросом; проекты и хозяйство агрегированы; отношения индивидуальны только у ключевых лиц; журналистика и память событий имеют небольшое число правил.\n\nВ 0.8.5: учреждения имеют вместимость, персонал и очереди; жители создают объединения и оценивают ответы партий; проекты проходят согласование, финансирование, выполнение и набор персонала. Документы хранят факты на дату, журналист сопоставляет объявление и акт. Новые силы создают возможность встречи, доступ к документу, свободное время и облегчают координацию. Ни встреча, ни публикация, ни поддержка партии не гарантированы. Причинный архив ограничен; изменения привлекательности разложены по компонентам, но вклад каждого отдельного события не вычисляется.\n\nДобавлены: бюджеты представительных домохозяйств (расходы, резерв, кредит, проценты, нехватка); решения о работе, курсе, заботе и взаимопомощи. Политики сравнивают действия по стоимости, характеру и сохранённой выборке, а не читают точные предпочтения всех жителей. Это прозрачный планировщик, не нейросетевые личности.\n\nЕщё не готовы: отдельные индивидуальные домохозяйства, подробный жизненный план каждого гражданина, второй тур, объединение партий, индивидуальное обучение стратегий и отложенные условные чудеса. P2P бога — два доверенных наблюдателя/участника одного мира с авторитетным создателем.\n\nСвободный ввод не означает произвольный исполняемый код. Неподдерживаемая механика блокируется. Нейросеть предлагает варианты; условия и приказы не превращаются в готовую победу партии.\n\nНовый слой: участники собраний — существующие жители; мандаты избираются, предложения могут быть отвергнуты. Соглашения имеют сроки и стоимость; помощь идёт через обычный денежный журнал, обучение не мгновенно. P2P передаёт проверяемые дельты и восстанавливает полный снимок при расхождении. Не добавлены полная микропопуляция, полные карьеры федеральных политиков и внутриотделенческие выборы, защищённый транспорт, LOD и вся система из 50 кризисных предложений.\n\nПодробный план: ПЛАН_0_8.md и КРИЗИСЫ_50.md в репозитории.')
 
     def _set(self,widget,text):
         widget.configure(state='normal');widget.delete('1.0','end');widget.insert('1.0',text);widget.configure(state='disabled')
@@ -227,6 +227,7 @@ class App(tk.Tk):
         selected={key:getattr(self,key).selection() for key in ('homes','actors','people','history')}
         s=self.world.state;v=self.world.summary()
         self.refresh_territories()
+        if hasattr(self,'_upper_refresh'):self._upper_refresh()
         self._set(self.story_text,'\n\n'.join(story.briefing(s)))
         self.continue_btn.configure(state='normal' if s['story'] and s['story']['finished'] and not s['story']['continued'] else 'disabled')
         if s['story']:self.goal_box.current(list(story.GOALS).index(s['story']['goal']))
@@ -516,7 +517,7 @@ class App(tk.Tk):
             for rid,r in sorted(t['regions'].items()):
                 lines.append(r['name']+' · бюджет '+str(round(r['budget']))+' · власть '+(', '.join(self.world.data['parties'][p]['name'] for p in r['government']) or 'до первых выборов'))
             if t['scale']=='federation':lines.append('Федерация · бюджет '+str(round(t['federal']['budget']))+' · власть '+(', '.join(self.world.data['parties'][p]['name'] for p in t['federal']['government']) or 'до первых выборов'))
-            lines+=['Верхние выборы — агрегирование местных предпочтений трёх общих партий; отдельная федеральная агитация и личности ещё не моделируются.','Регион распределяет помощь городам, федерация — регионам; приоритет зависит от программы правящей партии. Регулярный доход казны внешний; это не замкнутая налоговая модель.']
+            lines+=['Региональные и федеральные отделения имеют собственных руководителей, средства, опросы и кампании. Избиратели знают программы отдельно на каждом уровне; их голоса не копируются с городского результата.','Регион распределяет помощь городам, федерация — регионам; приоритет зависит от программы правящей партии. Регулярный доход казны внешний; это не замкнутая налоговая модель.']
             lines.extend('Неделя '+str(e['week'])+' · '+e['text'] for e in t['events'][-8:])
         else:lines.append('Для региона или федерации: Новый мир → свободный мир → выбрать масштаб. Сценарий комбината рассчитан на город.')
         self._set(self.world_text,'\n\n'.join(lines));selected=self.crisis_tree.selection();self.clear(self.crisis_tree)
@@ -524,6 +525,40 @@ class App(tk.Tk):
         self._set(self.crisis_text,'Обязательство: '+crises.GOALS.get(s['crises']['goal'],'не принято')+'. Выберите кризис. Тяжесть, способность решения и раскол — разные модельные показатели. Мирный протест не считается поражением.')
 
         if selected and self.crisis_tree.exists(selected[0]):self.crisis_tree.selection_set(selected[0]);self.crisis_details()
+
+    def upper_menu(self):
+        if not self.world.state['territory']:messagebox.showinfo('Верхние партии','Доступно в регионе или федерации.',parent=self);return
+        dlg=tk.Toplevel(self);dlg.title('Отделения верхних уровней — независимая политика');dlg.geometry('1000x650')
+        self.upper_dialog=dlg
+        t=self.world.state['territory'];lids=list(upper_politics.levels(t));labels=[t['regions'][lid]['name'] if lid!='federal' else 'Федерация' for lid in lids]
+        tools=ttk.Frame(dlg);tools.pack(fill='x',padx=8,pady=8)
+        scope=ttk.Combobox(tools,state='readonly',values=labels,width=30);scope.pack(side='left');scope.current(0)
+        turnout=ttk.Label(tools);turnout.pack(side='left',padx=16)
+        tree=self._tree(dlg,[('party','Партия'),('leader','Руководитель'),('share','Прогноз %'),('funds','Средства'),('org','Организация')],5);tree.column('leader',width=220,minwidth=180)
+        text=self._text(dlg,12)
+        self.upper_tree=tree;self.upper_text=text;self.upper_scope=scope
+        def details(event=None):
+            if not self.world.state['territory'] or set(upper_politics.levels(self.world.state['territory']))!=set(lids):return
+            selected=tree.selection()
+            if not selected:return
+            lid=lids[scope.current()];pid=selected[0];b=self.world.state['territory']['politics'][lid]['branches'][pid];a=b['leader'];intel=b['intel']
+            lines=[a['name']+' · ID '+a['id']+' · возраст '+str(a['age'])+' · компетентность '+str(a['competence'])+' · влияние '+str(a['influence']),
+             'Программа: '+', '.join(self.world.data['axes'][axis]['name']+' '+str(round(v,1)) if isinstance(self.world.data['axes'][axis],dict) else str(self.world.data['axes'][axis])+' '+str(round(v,1)) for axis,v in b['ideology'].items()),
+             'Последнее решение: '+upper_politics.ACTIONS.get(b['decision']['action'],'сохранить средства')+' · '+b['decision']['reason'],
+             'Знания: '+str(len(intel['sample']))+' шумных наблюдений, неделя '+str(intel['week'])+'. Отделение не читает точные предпочтения всех жителей.',
+             'Когорты хранят отдельное знание этой программы. Передача казны сама по себе не назначает победителя; её видимость и опыт услуги разделены.']
+            lines.extend('Неделя '+str(f['week'])+' · '+f['text'] for f in self.world.state['territory']['politics'][lid]['facts'][-6:] if f['party']==pid)
+            self._set(text,'\n\n'.join(lines))
+        def render(event=None):
+            if not dlg.winfo_exists():return
+            if not self.world.state['territory'] or set(upper_politics.levels(self.world.state['territory']))!=set(lids):dlg.destroy();return
+            lid=lids[scope.current()];t=self.world.state['territory'];shares,participation=upper_politics.forecast(t,lid,territories.cities(self.world.state));turnout.configure(text='Оценочная явка '+str(round(participation,1))+'%')
+            selected=tree.selection();self.clear(tree)
+            for pid,b in t['politics'][lid]['branches'].items():tree.insert('','end',iid=pid,values=(self.world.data['parties'][pid]['name'],b['leader']['name'],round(shares[pid],1),round(b['funds'],1),round(b['organization'],1)))
+            tree.selection_set(selected[0] if selected and tree.exists(selected[0]) else tree.get_children()[0]);details()
+        scope.bind('<<ComboboxSelected>>',render);tree.bind('<<TreeviewSelect>>',details);self._upper_refresh=render;render()
+        self._button(tools,'Обновить',render)
+        ttk.Label(dlg,text='Три общих партийных идентичности, отдельные отделения. Это не полные биографии и не вся страна.',wraplength=920).pack(fill='x',padx=8,pady=8)
 
     def select_city(self):
         selected=self.world_tree.selection()
@@ -684,7 +719,7 @@ class App(tk.Tk):
         fields={}
         for key,label,default in [('ip','IP создателя / VPN',''),('port','TCP-порт',str(DEFAULT_PORT)),('code','Код создателя',new_code())]:
             row=ttk.Frame(dlg);row.pack(fill='x',padx=12,pady=5);ttk.Label(row,text=label,width=23).pack(side='left');entry=ttk.Entry(row,width=40);entry.insert(0,default);entry.pack(side='left');fields[key]=entry
-        ttk.Label(dlg,text='Оба игрока используют 0.8.8. Ход времени и операции проверяет создатель.\nДля интернета — VPN или проброс порта. Пакеты НЕ шифруются; только доверенные друзья.\nПродолжение: создатель загружает обычный сейв мира и открывает новый код.',wraplength=580).pack(padx=12,pady=8)
+        ttk.Label(dlg,text='Оба игрока используют 0.8.9. Ход времени и операции проверяет создатель.\nДля интернета — VPN или проброс порта. Пакеты НЕ шифруются; только доверенные друзья.\nПродолжение: создатель загружает обычный сейв мира и открывает новый код.',wraplength=580).pack(padx=12,pady=8)
         def connect():
             try:
                 port=int(fields['port'].get());code=fields['code'].get().strip()
