@@ -57,6 +57,10 @@ def step(s,data,advance,choice,allocate,event):
     before={cid:sum(d['jobs'] for d in c['districts'].values())/4 for cid,c in all_cities.items()}
     for cid,c in all_cities.items():
         impulse=sum(t['links'][cid][other]*(before[other]-50) for other in t['links'][cid])*.003
+        # Actual service interruptions and labour actions constrain connected supply.
+        supply=sum(t['links'][cid][other]*(1-sum(f.get('output',1) for f in all_cities[other]['firms'].values())/4) for other in t['links'][cid])
+        impulse-=supply*.4
+        if supply>.01 and week%4==0:record(t,week,t['meta'][cid]['name']+': поставки ограничены трудовым конфликтом связанного города',[cid])
         for d in c['districts'].values():d['income']=max(0,min(100,d['income']+impulse))
     # Periodic intercity migration uses existing cohorts and conserves residents and stocks.
     if week%13==0:

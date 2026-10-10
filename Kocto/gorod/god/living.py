@@ -80,7 +80,8 @@ def tick(s,data,rng,emit):
         if 'elder' in c['tags'] and life['action'] in ('work','study'):
             life['action']='reserve';life['remaining']=0;c['goal']=ACTIONS['reserve']
         if s['week']==1 or s['week']%4==0:decide(c,d,cfg,s['week'])
-        costs=expenses(c,d,cfg);income=earnings(c,d,cfg)
+        from . import crisis_life
+        costs=expenses(c,d,cfg);income=earnings(c,d,cfg)*crisis_life.labour_factor(s,c)+crisis_life.subsidy(s,c)
         # A reserve decision directs more free cash to repayment, never invents money.
         reserve=life['action']=='reserve';h['reserve']=reserve
         settle(h,income,sum(costs.values()),cfg);del h['reserve']

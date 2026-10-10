@@ -24,6 +24,9 @@ def run_checks():
         app.apply();assert app.world.state['energy']<100 and not app.world.state['editor_used']
         app.entry.delete(0,'end');app.entry.insert(0,'Создать возможность встречи a0 и a999');app.prepare();assert not app.pending.ready and str(app.apply_btn['state'])=='disabled';app.cancel()
         app.advance(104);assert app.world.state['week']==13 and app.world.state['elections']
+        app.tabs.select(app.frames['crises']);rows=app.crisis_tree.get_children();assert rows
+        app.crisis_tree.selection_set(rows[0]);app.crisis_details();assert 'Мандат:' in app.crisis_text.get('1.0','end')
+        assert any(r['assembly']['members'] for r in app.world.state['crises']['items'])
         app.tabs.select(app.frames['homes']);app.homes.selection_set('c0');app.household_details()
         assert app.world.state['cohorts'][0]['household']['ledger'] and 'Денежный журнал' in app.home_text.get('1.0','end')
         app.refresh();assert app.homes.selection()==('c0',) and 'Денежный журнал' in app.home_text.get('1.0','end')
@@ -81,7 +84,11 @@ def run_checks():
         guest.dispatch('territory',{'op':'select','value':'r1:c0'});pump_until(lambda:not guest.net_busy)
         assert app.world.state==guest.world.state and app.world.state['territory']['active']=='r1:c0'
         guest.dispatch('step',1);pump_until(lambda:not guest.net_busy);assert app.world.state==guest.world.state
-        return {'god_ui':True,'god_world':True,'god_clipboard':True,'god_shortcuts':True,'god_save':True,'god_tcp':True,'households':True,'agent_planner':True,'migration_080':True,'institutions':True,'civic_projects':True,'document_ui':True,'scenario_ui':True,'scenario_epilogue':True,'scenario_tcp':True,'federation_ui':True,'federation_tcp':True}
+        guest.world.state['budget']+=.25 # deliberate divergence: verify full resync, no command replay
+        app.dispatch('territory',{'op':'boundary','value':{'metric':'health','floor':65}})
+        pump_until(lambda:app.world.state==guest.world.state)
+        assert guest.world.state['crises']['boundary']['floor']==65
+        return {'crisis_ui':True,'network_delta_resync':True,'god_ui':True,'god_world':True,'god_clipboard':True,'god_shortcuts':True,'god_save':True,'god_tcp':True,'households':True,'agent_planner':True,'migration_080':True,'institutions':True,'civic_projects':True,'document_ui':True,'scenario_ui':True,'scenario_epilogue':True,'scenario_tcp':True,'federation_ui':True,'federation_tcp':True}
     finally:
         if guest:guest.close()
         app.close()
