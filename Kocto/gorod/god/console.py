@@ -8,14 +8,17 @@ from .language import parse,execute
 
 def main():
     w=World(seed=87)
-    print('Город помнит 0.8.6 · игрок — бог. Мир живёт сам.\nКоманды: сценарий, свободный мир, история, продолжить, статус, неделя, месяц, выборы, хроника, сохранить ИМЯ, загрузить ИМЯ, выход.\nНапишите вмешательство; выполнение только после подтверждения.')
+    print('Город помнит 0.8.7 · игрок — бог. Мир живёт сам.\nКоманды: сценарий, свободный мир, регион, федерация, масштаб, город ID, кризисы, история, продолжить, статус, неделя, месяц, выборы, хроника, сохранить ИМЯ, загрузить ИМЯ, выход.\nНапишите вмешательство; выполнение только после подтверждения.')
     while True:
         try:text=input('Бог > ').strip()
         except EOFError:return 0
         try:
             if text in ('выход','exit'):return 0
             if text=='сценарий':w=World(scenario='last_winter');print('\n'.join(story.briefing(w.state)))
-            elif text=='свободный мир':w=World();print('Свободный мир создан')
+            elif text in ('свободный мир','регион','федерация'):w=World(scale={'регион':'region','федерация':'federation'}.get(text,'city'));print('Свободный мир создан')
+            elif text.startswith('город '):w.territorial_action('select',text.split(' ',1)[1]);print(w.summary())
+            elif text=='масштаб':print(w.state['territory']['meta'] if w.state['territory'] else 'Город')
+            elif text=='кризисы':print(w.state['crises'])
             elif text=='история':print('\n'.join(story.briefing(w.state)))
             elif text=='продолжить':w.story_action('continue')
             elif text=='статус':print(w.summary())
