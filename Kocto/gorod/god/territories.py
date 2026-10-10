@@ -2,6 +2,7 @@
 Local IDs are scoped by stable city IDs. Higher elections aggregate local cohort preferences.
 """
 import copy,hashlib
+from . import upper_politics as upper
 from ..engine import DataError,RuleError
 SCALES={'city':'Город','region':'Регион','federation':'Федерация'}
 
@@ -28,6 +29,7 @@ def initialize(s,data,scale,new_state):
     regions={rid:{'name':['Речной регион','Северный регион'][int(rid[1:])],'budget':60.0,'government':[],'elections':[]} for rid in {v['region'] for v in meta.values()}}
     ids=sorted(meta);links={a:{b:(.7 if meta[a]['region']==meta[b]['region'] else .2) for b in ids if b!=a} for a in ids}
     s['territory']={'seed':s['seed'],'scale':scale,'active':'r0:c0','meta':meta,'cities':saved,'regions':regions,'federal':{'budget':90.0,'government':[],'elections':[]},'links':links,'events':[],'next_event':1,'next_election':12}
+    upper.initialize(s,data,seed_for,cities)
 
 def record(t,week,text,refs=None):
     t['events'].append({'id':t['next_event'],'week':week,'text':text,'cities':list(refs or [])});t['next_event']+=1;del t['events'][:-180]
@@ -53,6 +55,7 @@ def step(s,data,advance,choice,allocate,event):
     for cid in sorted(all_cities):
         report=advance(all_cities[cid],data)
         if cid==t['active']:root_report=report
+    upper.tick(s,data,cities,seed_for,record)
     # Links transmit pressure through actual economic dependence, not global penalties.
     before={cid:sum(d['jobs'] for d in c['districts'].values())/4 for cid,c in all_cities.items()}
     for cid,c in all_cities.items():
@@ -78,14 +81,14 @@ def step(s,data,advance,choice,allocate,event):
         r['budget']=min(300,r['budget']+4)
         members=[k for k,v in t['meta'].items() if v['region']==rid]
         if week%4==0 and r['government'] and r['budget']>=12:
-            need=max(members,key=lambda k:(priority(all_cities[k],r['government'][0],data),k))
+            need=max(members,key=lambda k:(priority(all_cities[k],r['government'][0],upper.policy_data(t,rid,data)),k))
             city=all_cities[need];amount=min(12,300-city['budget'])
-            if amount>0:r['budget']-=amount;city['budget']+=amount;record(t,week,r['name']+' перечисляет '+str(round(amount,1))+' городу '+t['meta'][need]['name'],[need]);event(city,'regional_aid','Получено из регионального бюджета: '+str(round(amount,1)))
+            if amount>0:r['budget']-=amount;city['budget']+=amount;upper.aid(t,rid,need,amount,week);record(t,week,r['name']+' перечисляет '+str(round(amount,1))+' городу '+t['meta'][need]['name'],[need]);event(city,'regional_aid','Получено из регионального бюджета: '+str(round(amount,1)))
     federal=t['federal']
     if t['scale']=='federation':
         federal['budget']=min(300,federal['budget']+5)
         if week%8==0 and federal['government'] and federal['budget']>=16:
-            rid=max(t['regions'],key=lambda rid:sum(priority(all_cities[cid],federal['government'][0],data) for cid,m in t['meta'].items() if m['region']==rid)-t['regions'][rid]['budget']*.2);r=t['regions'][rid];amount=min(16,300-r['budget']);federal['budget']-=amount;r['budget']+=amount;record(t,week,'Федерация перечисляет '+str(round(amount,1))+' региону '+r['name'])
+            rid=max(t['regions'],key=lambda rid:sum(priority(all_cities[cid],federal['government'][0],upper.policy_data(t,'federal',data)) for cid,m in t['meta'].items() if m['region']==rid)-t['regions'][rid]['budget']*.2);r=t['regions'][rid];amount=min(16,300-r['budget']);federal['budget']-=amount;r['budget']+=amount;upper.aid(t,'federal',rid,amount,week);record(t,week,'Федерация перечисляет '+str(round(amount,1))+' региону '+r['name'])
     if week>=t['next_election']:
         levels=[(rid,r,[k for k,v in t['meta'].items() if v['region']==rid]) for rid,r in sorted(t['regions'].items())]
         if t['scale']=='federation':levels.append(('federal',federal,sorted(all_cities)))
@@ -94,7 +97,7 @@ def step(s,data,advance,choice,allocate,event):
             for cid in members:
                 c=all_cities[cid]
                 for cohort in c['cohorts']:
-                    probs,turnout=choice(c,cohort)
+                    probs,turnout=upper.choice(t,lid,cid,c,cohort)
                     eligible={pid:value for pid,value in probs.items() if pid in votes};total=sum(eligible.values());n=round(cohort['population']*turnout) if total else 0
                     raw={pid:n*value/total for pid,value in eligible.items()} if total else {};counts={pid:int(value) for pid,value in raw.items()}
                     for pid in sorted(raw,key=lambda p:(-(raw[p]-counts[p]),p))[:n-sum(counts.values())]:counts[pid]+=1
@@ -112,7 +115,7 @@ def step(s,data,advance,choice,allocate,event):
 def validate(s,data,validate_city):
     t=s['territory']
     if t is None:return
-    expected={'seed','scale','active','meta','cities','regions','federal','links','events','next_event','next_election'}
+    expected={'seed','scale','active','meta','cities','regions','federal','links','events','next_event','next_election','politics'}
     if type(t['seed']) is not int or not 0<=t['seed']<2**64 or set(t)!=expected or t['scale'] not in ('region','federation') or len(t['meta'])!=(2 if t['scale']=='region' else 4) or t['active'] not in t['meta'] or set(t['cities'])!=set(t['meta'])-{t['active']}:raise DataError('territory: schema')
     ids={'r0:c0','r0:c1'} if t['scale']=='region' else {'r0:c0','r0:c1','r1:c0','r1:c1'}
     regions={'r0'} if t['scale']=='region' else {'r0','r1'}
@@ -132,3 +135,5 @@ def validate(s,data,validate_city):
     for e in t['events']:
         if set(e)!={'id','week','text','cities'} or type(e['id']) is not int or not 0<e['id']<t['next_event'] or type(e['week']) is not int or not 1<=e['week']<=s['week'] or not isinstance(e['text'],str) or any(cid not in ids for cid in e['cities']):raise DataError('territory: event')
     if len(t['events'])>180 or type(t['next_event']) is not int or t['next_event']<1 or type(t['next_election']) is not int or t['next_election']<1:raise DataError('territory: chronology')
+
+    upper.validate(s,data,cities)
