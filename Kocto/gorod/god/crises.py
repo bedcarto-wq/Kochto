@@ -1,12 +1,13 @@
 """Bounded material crises; peaceful organization is not a failure condition."""
 from ..engine import DataError,RuleError
-from . import civic
+from . import civic,crisis_life
 KINDS={'jobs':'Потеря заработка','services':'Недоступность услуг','trust':'Кризис ответственности'}
 STAGES={'warning':'ранние признаки','organizing':'жители организуются','negotiating':'поиск решения','acute':'острая фаза','recovering':'восстановление','resolved':'завершён'}
 GOALS={'livelihood':'Сохранить средства к жизни','access':'Восстановить доступ к помощи','ties':'Сохранить возможность сотрудничества','observe':'Оставить решение людям'}
 
 def initialize(s):
     s['crises']={'items':[],'next_id':1,'goal':None,'history':[]}
+    crisis_life.migrate(s)
 
 def measures(s,kind):
     ds=list(s['districts'].values());cs=s['cohorts'];n=max(1,sum(c['population'] for c in cs))
@@ -21,6 +22,9 @@ def tick(s,data,emit):
     z=s['crises'];week=s['week']
     for kind in KINDS:
         material,capacity,division=measures(s,kind)
+        losses=crisis_life.damage(s,kind)
+        worst=max(sum(losses[c['id']]*c['population'] for c in s['cohorts'] if c['district']==did)/max(1,d['population']) for did,d in s['districts'].items())
+        material=max(material,worst*.75)
         row=next((c for c in z['items'] if c['kind']==kind and c['stage']!='resolved'),None)
         if row is None and material>=data['scale_rules']['crisis_trigger']:
             cid='K'+str(z['next_id']);z['next_id']+=1
@@ -44,8 +48,10 @@ def tick(s,data,emit):
                 inst=max(s['civic']['institutions'].values(),key=lambda i:i['delay'])
                 p=civic.propose(s,data,pid,inst['id'],emit,row['last_event'])
                 if p:row['response_week']=week
+        crisis_life.update(s,data,row,emit)
         if row['stage']!=old:
             e=emit(s,'crisis_phase',row['id']+': '+STAGES[row['stage']]+'; давление '+str(round(material))+', способность решать '+str(round(capacity)),topic=kind if kind!='trust' else 'rights',causes=[row['last_event']]);row['last_event']=e['id']
+    z['summary']=[r['id']+': '+STAGES[r['stage']]+'; давление '+str(round(r['material']))+'; '+r['assembly']['reason'] for r in z['items'] if r['stage']!='resolved'][:3]
     active=[c for c in z['items'] if c['stage']!='resolved'];ended=[c for c in z['items'] if c['stage']=='resolved'][-12:];z['items']=active+ended
 
 def choose(s,value,emit):
@@ -55,10 +61,12 @@ def choose(s,value,emit):
 
 def validate(s,numeric):
     z=s['crises']
-    if set(z)!={'items','next_id','goal','history'} or z['goal'] not in (None,*GOALS) or type(z['next_id']) is not int or z['next_id']<1 or len(z['items'])>15 or len(z['history'])>24:raise DataError('crises: schema')
+    if set(z)!={'items','next_id','goal','history','boundary','boundary_history','memory','summary'} or z['goal'] not in (None,*GOALS) or type(z['next_id']) is not int or z['next_id']<1 or len(z['items'])>15 or len(z['history'])>24:raise DataError('crises: schema')
     ids=set()
     for c in z['items']:
         if c['id'] in ids or c['kind'] not in KINDS or c['stage'] not in STAGES or type(c['born']) is not int or c['born']<1 or type(c['low_weeks']) is not int or c['low_weeks']<0 or type(c['members']) is not int or c['members']<0:raise DataError('crises: state')
         ids.add(c['id'])
         for k in ('material','capacity','division','peak'):numeric(c[k],0,100,'crisis '+k)
         if len(c['epilogue'])>3 or any(not isinstance(t,str) for t in c['epilogue']):raise DataError('crises: epilogue')
+
+    crisis_life.validate(s,numeric)

@@ -124,7 +124,7 @@ class CivicTests(unittest.TestCase):
         payload={'format':'god-world','schema':2,'rules':fingerprint(previous_data(self.d,2)),'state':old}
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'old.json';p.write_text(json.dumps({'payload':payload,'checksum':fingerprint(payload)},ensure_ascii=False),encoding='utf-8');other=World();other.load(p)
-            self.assertEqual(other.state['cohorts'][0]['household'],old['cohorts'][0]['household']);self.assertEqual(other.state['week_seed'],old['week_seed']);self.assertEqual(other.state['schema'],5)
+            self.assertEqual(other.state['cohorts'][0]['household'],old['cohorts'][0]['household']);self.assertEqual(other.state['week_seed'],old['week_seed']);self.assertEqual(other.state['schema'],6)
     def test_legacy_paid_project_not_paid_twice(self):
         old=copy.deepcopy(self.s);old.pop('territory',None);old.pop('crises',None);old.pop('story',None);old.pop('civic');old['schema']=2
         for c in old['cohorts']:del c['service_pressure'];del c['service_cause']

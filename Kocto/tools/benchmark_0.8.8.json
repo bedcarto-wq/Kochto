@@ -1,0 +1,37 @@
+{
+  "python": "3.13.14",
+  "seed": 88,
+  "weeks": 26,
+  "scales": {
+    "city": {
+      "initialization_s": 0.091,
+      "initial_peak_allocated_bytes": 687140,
+      "sample_week_peak_allocated_bytes": 3342958,
+      "simulation_s": 0.8304,
+      "week_mean_s": 0.0319,
+      "save_bytes": 1815085,
+      "network_bytes": 1975327,
+      "population": 24000
+    },
+    "region": {
+      "initialization_s": 0.1568,
+      "initial_peak_allocated_bytes": 1265036,
+      "sample_week_peak_allocated_bytes": 6506767,
+      "simulation_s": 1.7343,
+      "week_mean_s": 0.0667,
+      "save_bytes": 395534,
+      "network_bytes": 395439,
+      "population": 48000
+    },
+    "federation": {
+      "initialization_s": 0.2913,
+      "initial_peak_allocated_bytes": 2477008,
+      "sample_week_peak_allocated_bytes": 12798120,
+      "simulation_s": 3.6272,
+      "week_mean_s": 0.1395,
+      "save_bytes": 792862,
+      "network_bytes": 792767,
+      "population": 96000
+    }
+  }
+}
